@@ -7,9 +7,10 @@ import (
 
 func (h *Handler) expand(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/")
-	originalURL, ok := h.urls[key]
+	originalURL, ok := h.service.Expand(key)
+
 	if !ok {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "URL not found", http.StatusNotFound)
 		return
 	}
 
