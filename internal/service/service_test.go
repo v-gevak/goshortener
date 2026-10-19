@@ -32,26 +32,23 @@ func (m *mockURLStore) Exists(key string) bool {
 	return ok
 }
 
-func TestService_BuildShortURL(t *testing.T) {
+func TestService_Shorten(t *testing.T) {
 	store := newMockURLStore()
 	svc := New(store)
 
 	originalURL := "https://www.google.com"
-	host := "shortener.ru"
 
-	shortURL := svc.BuildShortURL(originalURL, host)
-
-	prefix := "http://" + host + "/"
-
-	require.True(t, strings.HasPrefix(shortURL, prefix))
-
-	key := strings.TrimPrefix(shortURL, prefix)
+	key := svc.Shorten(originalURL)
 
 	assert.Len(t, key, keyLength)
 
 	for _, char := range key {
 		assert.True(t, strings.ContainsRune(alphabet, char))
 	}
+
+	stored, ok := store.Get(key)
+	require.True(t, ok)
+	assert.Equal(t, originalURL, stored)
 }
 
 func TestService_Expand(t *testing.T) {

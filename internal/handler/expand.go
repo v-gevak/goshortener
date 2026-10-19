@@ -2,11 +2,12 @@ package handler
 
 import (
 	"net/http"
-	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func (h *Handler) expand(w http.ResponseWriter, r *http.Request) {
-	key := strings.TrimPrefix(r.URL.Path, "/")
+	key := chi.URLParam(r, "key")
 	originalURL, ok := h.service.Expand(key)
 
 	if !ok {

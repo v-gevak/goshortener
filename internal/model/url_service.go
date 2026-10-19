@@ -1,6 +1,6 @@
 package model
 
 type URLService interface {
-	BuildShortURL(originalURL string, host string) string
+	Shorten(originalURL string) string
 	Expand(key string) (string, bool)
 }

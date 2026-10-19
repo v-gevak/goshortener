@@ -9,10 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHandler_ServeHTTP(t *testing.T) {
+func TestHandler_Router(t *testing.T) {
 	tests := []struct {
 		name            string
 		method          string
+		path            string
 		body            string
 		expectedStatus  int
 		expectedBody    string
@@ -22,14 +23,16 @@ func TestHandler_ServeHTTP(t *testing.T) {
 		{
 			name:            "POST routes to shorten",
 			method:          http.MethodPost,
+			path:            "/",
 			body:            "https://www.google.com",
 			expectedStatus:  http.StatusCreated,
-			expectedBody:    "https://shortener.ru/ABCD",
+			expectedBody:    "http://example.com/ABCD",
 			wantShortenCall: true,
 		},
 		{
 			name:           "GET routes to expand",
 			method:         http.MethodGet,
+			path:           "/ABCD",
 			expectedStatus: http.StatusNotFound,
 			expectedBody:   "URL not found\n",
 			wantExpandCall: true,
@@ -37,8 +40,9 @@ func TestHandler_ServeHTTP(t *testing.T) {
 		{
 			name:           "unsupported method returns 405",
 			method:         http.MethodPut,
+			path:           "/",
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody:   "method not allowed\n",
+			expectedBody:   "",
 		},
 	}
 
@@ -48,9 +52,9 @@ func TestHandler_ServeHTTP(t *testing.T) {
 			expandCalled := false
 
 			svc := &mockURLService{
-				buildShortURL: func(originalURL, host string) string {
+				shorten: func(originalURL string) string {
 					shortenCalled = true
-					return "https://shortener.ru/ABCD"
+					return "ABCD"
 				},
 				expand: func(key string) (string, bool) {
 					expandCalled = true
@@ -58,16 +62,12 @@ func TestHandler_ServeHTTP(t *testing.T) {
 				},
 			}
 
-			h := &Handler{service: svc}
+			router := New(svc)
 
-			r := httptest.NewRequest(
-				tt.method,
-				"/",
-				strings.NewReader(tt.body),
-			)
+			r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 
-			h.ServeHTTP(w, r)
+			router.ServeHTTP(w, r)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			assert.Equal(t, tt.expectedBody, w.Body.String())

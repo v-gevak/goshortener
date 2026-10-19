@@ -19,11 +19,11 @@ func New(store model.URLStore) *Service {
 	return &Service{store: store}
 }
 
-func (s *Service) BuildShortURL(originalURL string, host string) string {
+func (s *Service) Shorten(originalURL string) string {
 	key := s.generateUniqueKey()
 	s.store.Set(key, originalURL)
 
-	return "http://" + host + "/" + key
+	return key
 }
 
 func (s *Service) Expand(key string) (string, bool) {

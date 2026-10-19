@@ -1,20 +1,19 @@
 package handler
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHandler_shorten(t *testing.T) {
-	expectedURL := "https://shortener.ru/ABCD"
-
 	testSvc := &mockURLService{
-		buildShortURL: func(originalURL string, host string) string {
-			return expectedURL
+		shorten: func(originalURL string) string {
+			return "ABCD"
 		},
 	}
 
@@ -36,7 +35,7 @@ func TestHandler_shorten(t *testing.T) {
 			name:                "should return short url",
 			body:                io.NopCloser(strings.NewReader("https://www.google.com")),
 			expectedStatusCode:  http.StatusCreated,
-			expectedBody:        expectedURL,
+			expectedBody:        "http://example.com/ABCD",
 			expectedContentType: "text/plain; charset=utf-8",
 		},
 	}
