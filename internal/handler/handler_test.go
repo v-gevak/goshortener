@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/v-gevak/goshortener/internal/config"
 )
 
 func TestHandler_Router(t *testing.T) {
@@ -52,9 +53,9 @@ func TestHandler_Router(t *testing.T) {
 			expandCalled := false
 
 			svc := &mockURLService{
-				shorten: func(originalURL string) string {
+				shorten: func(originalURL string) (string, error) {
 					shortenCalled = true
-					return "ABCD"
+					return "ABCD", nil
 				},
 				expand: func(key string) (string, bool) {
 					expandCalled = true
@@ -62,12 +63,15 @@ func TestHandler_Router(t *testing.T) {
 				},
 			}
 
-			router := New(svc)
+			h := New(
+				&config.Config{BaseURL: "http://example.com"},
+				svc,
+			)
 
 			r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 
-			router.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			assert.Equal(t, tt.expectedBody, w.Body.String())

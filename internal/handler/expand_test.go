@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/v-gevak/goshortener/internal/config"
 )
 
 func TestHandler_expand(t *testing.T) {
@@ -37,12 +38,15 @@ func TestHandler_expand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := New(&mockURLService{expand: tt.expand})
+			h := New(
+				&config.Config{BaseURL: "http://example.com"},
+				&mockURLService{expand: tt.expand},
+			)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.key, nil)
 			w := httptest.NewRecorder()
 
-			router.ServeHTTP(w, request)
+			h.ServeHTTP(w, request)
 
 			assert.Equal(t, tt.expectedStatusCode, w.Code)
 			assert.Equal(t, tt.expectedLocation, w.Header().Get("Location"))

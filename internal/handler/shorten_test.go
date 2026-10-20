@@ -8,12 +8,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/v-gevak/goshortener/internal/config"
 )
 
 func TestHandler_shorten(t *testing.T) {
 	testSvc := &mockURLService{
-		shorten: func(originalURL string) string {
-			return "ABCD"
+		shorten: func(originalURL string) (string, error) {
+			return "ABCD", nil
 		},
 	}
 
@@ -41,7 +42,10 @@ func TestHandler_shorten(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &Handler{service: testSvc}
+			h := &Handler{
+				service: testSvc,
+				config:  &config.Config{BaseURL: "http://example.com"},
+			}
 
 			request := httptest.NewRequest(http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"github.com/v-gevak/goshortener/internal/model"
+	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
 const (
@@ -19,11 +20,15 @@ func New(store model.URLStore) *Service {
 	return &Service{store: store}
 }
 
-func (s *Service) Shorten(originalURL string) string {
+func (s *Service) Shorten(originalURL string) (string, error) {
+	if _, err := urlutil.ValidateHTTPURL(originalURL); err != nil {
+		return "", err
+	}
+
 	key := s.generateUniqueKey()
 	s.store.Set(key, originalURL)
 
-	return key
+	return key, nil
 }
 
 func (s *Service) Expand(key string) (string, bool) {

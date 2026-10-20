@@ -33,22 +33,51 @@ func (m *mockURLStore) Exists(key string) bool {
 }
 
 func TestService_Shorten(t *testing.T) {
-	store := newMockURLStore()
-	svc := New(store)
-
-	originalURL := "https://www.google.com"
-
-	key := svc.Shorten(originalURL)
-
-	assert.Len(t, key, keyLength)
-
-	for _, char := range key {
-		assert.True(t, strings.ContainsRune(alphabet, char))
+	tests := []struct {
+		name        string
+		originalURL string
+		wantErr     bool
+	}{
+		{
+			name:        "valid url",
+			originalURL: "https://www.google.com",
+			wantErr:     false,
+		},
+		{
+			name:        "invalid url",
+			originalURL: "invalid-url",
+			wantErr:     true,
+		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newMockURLStore()
+			svc := New(store)
 
-	stored, ok := store.Get(key)
-	require.True(t, ok)
-	assert.Equal(t, originalURL, stored)
+			key, err := svc.Shorten(tt.originalURL)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Empty(t, key)
+
+				_, ok := store.Get(key)
+				assert.False(t, ok)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, key, keyLength)
+
+			for _, char := range key {
+				assert.True(t, strings.ContainsRune(alphabet, char))
+			}
+
+			stored, ok := store.Get(key)
+			require.True(t, ok)
+			assert.Equal(t, tt.originalURL, stored)
+
+		})
+	}
 }
 
 func TestService_Expand(t *testing.T) {
