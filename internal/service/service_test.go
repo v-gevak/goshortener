@@ -18,9 +18,9 @@ func newMockURLStore() *mockURLStore {
 	}
 }
 
-func (m *mockURLStore) SetIfAbsent(key, value string) bool {
+func (m *mockURLStore) SetIfAbsent(key, value string) error {
 	m.urls[key] = value
-	return true
+	return nil
 }
 
 func (m *mockURLStore) Get(key string) (string, bool) {
@@ -132,7 +132,8 @@ func TestService_Expand(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.exists {
-				mockStore.SetIfAbsent(tt.key, tt.originalURL)
+				err := mockStore.SetIfAbsent(tt.key, tt.originalURL)
+				require.NoError(t, err)
 			}
 
 			url, ok := svc.Expand(tt.key)

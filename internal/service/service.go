@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/v-gevak/goshortener/internal/storeerr"
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
@@ -21,7 +22,7 @@ var (
 )
 
 type URLStore interface {
-	SetIfAbsent(key string, originalURL string) bool
+	SetIfAbsent(key string, originalURL string) error
 	Get(key string) (string, bool)
 }
 
@@ -50,9 +51,15 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 	for i := 0; i < maxKeyGenerationAttempts; i++ {
 		key := s.generateKey()
 
-		if s.store.SetIfAbsent(key, originalURL) {
-			return url.JoinPath(s.settings.BaseURL, key)
+		if err := s.store.SetIfAbsent(key, originalURL); err != nil {
+			if errors.Is(err, storeerr.ErrKeyExists) {
+				continue
+			}
+
+			return "", err
 		}
+
+		return url.JoinPath(s.settings.BaseURL, key)
 	}
 
 	return "", errors.New("failed to generate unique key")
