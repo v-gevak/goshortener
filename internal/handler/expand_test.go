@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/v-gevak/goshortener/internal/config"
 )
 
 func TestHandler_expand(t *testing.T) {
@@ -39,7 +38,6 @@ func TestHandler_expand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New(
-				&config.Config{BaseURL: "http://example.com"},
 				&mockURLService{expand: tt.expand},
 			)
 

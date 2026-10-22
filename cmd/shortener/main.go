@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/v-gevak/goshortener/internal/config"
@@ -11,17 +11,24 @@ import (
 )
 
 func main() {
-	cfg, err := config.New()
-	if err != nil {
-		panic(err)
-	}
+	cfg := config.New()
 
 	store := repository.New()
-	svc := service.New(store)
-	h := handler.New(cfg, svc)
+	svc, err := service.New(store, serviceSettings(cfg))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Printf("Listening on %s\n", cfg.ServerAddress)
-	if err := http.ListenAndServe(cfg.ServerAddress, h); err != nil {
-		panic(err)
+	h := handler.New(svc)
+
+	log.Printf("Listening on %s\n", cfg.ServerSettings.Address)
+	if err := http.ListenAndServe(cfg.ServerSettings.Address, h); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func serviceSettings(cfg *config.Config) service.Settings {
+	return service.Settings{
+		BaseURL: cfg.ServiceSettings.BaseURL,
 	}
 }

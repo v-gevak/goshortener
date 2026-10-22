@@ -18,18 +18,14 @@ func newMockURLStore() *mockURLStore {
 	}
 }
 
-func (m *mockURLStore) Set(key, value string) {
+func (m *mockURLStore) SetIfAbsent(key, value string) bool {
 	m.urls[key] = value
+	return true
 }
 
 func (m *mockURLStore) Get(key string) (string, bool) {
 	value, ok := m.urls[key]
 	return value, ok
-}
-
-func (m *mockURLStore) Exists(key string) bool {
-	_, ok := m.urls[key]
-	return ok
 }
 
 func TestService_Shorten(t *testing.T) {
@@ -51,21 +47,24 @@ func TestService_Shorten(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := newMockURLStore()
-			svc := New(store)
+			const baseURL = "http://example.com"
 
-			key, err := svc.Shorten(tt.originalURL)
+			store := newMockURLStore()
+			svc, err := New(store, Settings{BaseURL: baseURL})
+			require.NoError(t, err)
+
+			shortURL, err := svc.Shorten(tt.originalURL)
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Empty(t, key)
-
-				_, ok := store.Get(key)
-				assert.False(t, ok)
+				require.Empty(t, shortURL)
 				return
 			}
 
 			require.NoError(t, err)
+			require.True(t, strings.HasPrefix(shortURL, baseURL+"/"))
+
+			key := strings.TrimPrefix(shortURL, baseURL+"/")
 			assert.Len(t, key, keyLength)
 
 			for _, char := range key {
@@ -76,6 +75,31 @@ func TestService_Shorten(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, tt.originalURL, stored)
 
+		})
+	}
+}
+
+func TestService_New_InvalidBaseURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		wantErr bool
+	}{
+		{name: "valid", baseURL: "http://example.com", wantErr: false},
+		{name: "unsupported scheme", baseURL: "ftp://example.com", wantErr: true},
+		{name: "empty host", baseURL: "http://", wantErr: true},
+		{name: "with query", baseURL: "http://example.com?x=1", wantErr: true},
+		{name: "port out of range", baseURL: "http://example.com:99999", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := New(newMockURLStore(), Settings{BaseURL: tt.baseURL})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -104,10 +128,11 @@ func TestService_Expand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStore := newMockURLStore()
-			svc := New(mockStore)
+			svc, err := New(mockStore, Settings{BaseURL: "http://example.com"})
+			require.NoError(t, err)
 
 			if tt.exists {
-				mockStore.Set(tt.key, tt.originalURL)
+				mockStore.SetIfAbsent(tt.key, tt.originalURL)
 			}
 
 			url, ok := svc.Expand(tt.key)
