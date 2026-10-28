@@ -38,6 +38,13 @@ func TestHandler_shorten(t *testing.T) {
 			expectedBody:        "http://example.com/ABCD",
 			expectedContentType: "text/plain; charset=utf-8",
 		},
+		{
+			name:                "should return error `413`",
+			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 65*1024))),
+			expectedStatusCode:  http.StatusRequestEntityTooLarge,
+			expectedBody:        "Request Entity Too Large\n",
+			expectedContentType: "text/plain; charset=utf-8",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -11,10 +11,16 @@ import (
 
 func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64*1024))
 
 	if err != nil {
 		log.Printf("failed to read request body: %v", err)
+
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+			return
+		}
+
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
