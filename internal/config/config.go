@@ -15,6 +15,7 @@ type Config struct {
 
 func New() *Config {
 	cfg := new(Config)
-	ParseFlags(cfg)
+	parseFlags(cfg)
+	parseEnvs(cfg)
 	return cfg
 }
