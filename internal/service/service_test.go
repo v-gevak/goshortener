@@ -44,6 +44,11 @@ func TestService_Shorten(t *testing.T) {
 			originalURL: "invalid-url",
 			wantErr:     true,
 		},
+		{
+			name:        "port without hostname",
+			originalURL: "http://:8080/path",
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -56,8 +61,9 @@ func TestService_Shorten(t *testing.T) {
 			shortURL, err := svc.Shorten(tt.originalURL)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				require.ErrorIs(t, err, ErrInvalidURL)
 				require.Empty(t, shortURL)
+				require.Empty(t, store.urls)
 				return
 			}
 
@@ -86,8 +92,11 @@ func TestService_New_InvalidBaseURL(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "valid", baseURL: "http://example.com", wantErr: false},
+		{name: "root path", baseURL: "http://example.com/", wantErr: false},
+		{name: "path prefix", baseURL: "http://example.com/short", wantErr: true},
 		{name: "unsupported scheme", baseURL: "ftp://example.com", wantErr: true},
 		{name: "empty host", baseURL: "http://", wantErr: true},
+		{name: "port without hostname", baseURL: "http://:8080", wantErr: true},
 		{name: "with query", baseURL: "http://example.com?x=1", wantErr: true},
 		{name: "port out of range", baseURL: "http://example.com:99999", wantErr: true},
 	}

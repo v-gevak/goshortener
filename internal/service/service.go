@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"path"
 	"strconv"
 
 	"github.com/v-gevak/goshortener/internal/storeerr"
@@ -89,6 +90,10 @@ func validateBaseURL(rawURL string) error {
 		if err := validatePort(port); err != nil {
 			return err
 		}
+	}
+
+	if escapedPath := u.EscapedPath(); escapedPath != "" && path.Clean(escapedPath) != "/" {
+		return errors.New("base URL path must resolve to /")
 	}
 
 	if u.RawQuery != "" || u.Fragment != "" {

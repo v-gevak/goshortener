@@ -7,7 +7,30 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/v-gevak/goshortener/internal/repository"
+	"github.com/v-gevak/goshortener/internal/service"
 )
+
+func TestHandler_ShortenAndExpand(t *testing.T) {
+	baseURL := "http://example.com/"
+	svc, err := service.New(repository.New(), service.Settings{BaseURL: baseURL})
+	require.NoError(t, err)
+	h := New(svc)
+
+	const originalURL = "https://example.org/page"
+	shortenResponse := httptest.NewRecorder()
+	h.ServeHTTP(shortenResponse, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(originalURL)))
+	require.Equal(t, http.StatusCreated, shortenResponse.Code)
+	shortURL := shortenResponse.Body.String()
+	require.Regexp(t, `^http://example\.com/[a-zA-Z0-9]{8}$`, shortURL)
+
+	expandResponse := httptest.NewRecorder()
+	h.ServeHTTP(expandResponse, httptest.NewRequest(http.MethodGet, shortURL, nil))
+	assert.Equal(t, http.StatusTemporaryRedirect, expandResponse.Code)
+	assert.Equal(t, originalURL, expandResponse.Header().Get("Location"))
+
+}
 
 func TestHandler_Router(t *testing.T) {
 	tests := []struct {

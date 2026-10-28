@@ -15,7 +15,7 @@ func ValidateHTTPURL(rawURL string) (*url.URL, error) {
 		return nil, fmt.Errorf("scheme must be http or https")
 	}
 
-	if u.Host == "" {
+	if u.Hostname() == "" {
 		return nil, fmt.Errorf("host must not be empty")
 	}
 
