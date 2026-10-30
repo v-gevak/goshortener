@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -56,7 +57,8 @@ func TestNew(t *testing.T) {
 				t.Setenv(key, envVar)
 			}
 
-			cfg := New()
+			cfg, err := New()
+			require.NoError(t, err)
 
 			assert.Equal(t, tt.expectedServerAddr, cfg.ServerSettings.Address)
 			assert.Equal(t, tt.expectedBaseURL, cfg.ServiceSettings.BaseURL)

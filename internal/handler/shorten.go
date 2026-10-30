@@ -3,9 +3,9 @@ package handler
 import (
 	"errors"
 	"io"
-	"log"
 	"net/http"
 
+	"github.com/v-gevak/goshortener/internal/logger"
 	"github.com/v-gevak/goshortener/internal/service"
 )
 
@@ -14,13 +14,12 @@ func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64*1024))
 
 	if err != nil {
-		log.Printf("failed to read request body: %v", err)
-
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
 			return
 		}
 
+		h.log.Error("failed to read request body", logger.Error(err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -37,7 +36,7 @@ func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrInvalidURL):
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		default:
-			log.Printf("failed to shorten URL: %v", err)
+			h.log.Error("failed to shorten URL", logger.Error(err))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
 
@@ -47,6 +46,6 @@ func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
 	if _, err := w.Write([]byte(shortURL)); err != nil {
-		log.Printf("write response error: %v", err)
+		h.log.Error("write response error", logger.Error(err))
 	}
 }

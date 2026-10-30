@@ -50,6 +50,7 @@ func TestHandler_shorten(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Handler{
 				service: testSvc,
+				log:     &mockLogger{},
 			}
 
 			request := httptest.NewRequest(http.MethodPost, "/", tt.body)
