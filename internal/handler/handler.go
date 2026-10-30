@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/v-gevak/goshortener/internal/logger"
 )
 
 type URLService interface {
@@ -9,13 +10,21 @@ type URLService interface {
 	Expand(key string) (string, bool)
 }
 
-type Handler struct {
-	service URLService
+type Logger interface {
+	Error(msg string, fields ...logger.Field)
+	Info(msg string, fields ...logger.Field)
 }
 
-func New(s URLService) *chi.Mux {
+type Handler struct {
+	service URLService
+	log     Logger
+}
+
+func New(s URLService, log Logger) *chi.Mux {
 	router := chi.NewRouter()
-	h := &Handler{service: s}
+	h := &Handler{service: s, log: log}
+
+	router.Use(withLogging(log))
 
 	router.Get("/{key}", h.expand)
 	router.Post("/", h.shorten)

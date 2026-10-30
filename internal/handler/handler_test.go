@@ -16,7 +16,7 @@ func TestHandler_ShortenAndExpand(t *testing.T) {
 	baseURL := "http://example.com/"
 	svc, err := service.New(repository.New(), service.Settings{BaseURL: baseURL})
 	require.NoError(t, err)
-	h := New(svc)
+	h := New(svc, &mockLogger{})
 
 	const originalURL = "https://example.org/page"
 	shortenResponse := httptest.NewRecorder()
@@ -85,7 +85,7 @@ func TestHandler_Router(t *testing.T) {
 				},
 			}
 
-			h := New(svc)
+			h := New(svc, &mockLogger{})
 
 			r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()

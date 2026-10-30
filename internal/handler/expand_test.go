@@ -39,6 +39,7 @@ func TestHandler_expand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New(
 				&mockURLService{expand: tt.expand},
+				&mockLogger{},
 			)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.key, nil)
