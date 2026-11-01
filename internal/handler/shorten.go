@@ -1,45 +1,37 @@
 package handler
 
 import (
-	"errors"
+	"encoding/json"
 	"io"
 	"net/http"
 
 	"github.com/v-gevak/goshortener/internal/logger"
-	"github.com/v-gevak/goshortener/internal/service"
+	"github.com/v-gevak/goshortener/internal/model"
 )
 
+type shortenRequest struct {
+	URL string `json:"url"`
+}
+
+type shortenResponse struct {
+	Result string `json:"result"`
+}
+
 func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64*1024))
-
+	body, err := readRequestBody(r)
 	if err != nil {
-		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
-			http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
-			return
-		}
-
-		h.log.Error("failed to read request body", logger.Error(err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		h.writeError(w, err)
 		return
 	}
 
 	if len(body) == 0 {
-		http.Error(w, "empty body", http.StatusBadRequest)
+		h.writeError(w, model.ValidationError("empty body"))
 		return
 	}
 
 	shortURL, err := h.service.Shorten(string(body))
-
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrInvalidURL):
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		default:
-			h.log.Error("failed to shorten URL", logger.Error(err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
-
+		h.writeError(w, err)
 		return
 	}
 
@@ -48,4 +40,44 @@ func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write([]byte(shortURL)); err != nil {
 		h.log.Error("write response error", logger.Error(err))
 	}
+}
+
+func (h *Handler) shortenJSON(w http.ResponseWriter, r *http.Request) {
+	body, err := readRequestBody(r)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	var request shortenRequest
+
+	if err := json.Unmarshal(body, &request); err != nil {
+		h.writeError(w, model.ValidationError("invalid JSON request body"))
+		return
+	}
+
+	if request.URL == "" {
+		h.writeError(w, model.ValidationError("missing `URL` in request body"))
+		return
+	}
+
+	shortURL, err := h.service.Shorten(request.URL)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	response := shortenResponse{Result: shortURL}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.log.Error("encode response error", logger.Error(err))
+	}
+}
+
+func readRequestBody(r *http.Request) ([]byte, error) {
+	defer r.Body.Close()
+
+	return io.ReadAll(http.MaxBytesReader(nil, r.Body, 64*1024))
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/v-gevak/goshortener/internal/model"
 )
 
 type mockURLStore struct {
@@ -61,7 +62,7 @@ func TestService_Shorten(t *testing.T) {
 			shortURL, err := svc.Shorten(tt.originalURL)
 
 			if tt.wantErr {
-				require.ErrorIs(t, err, ErrInvalidURL)
+				require.ErrorAs(t, err, new(model.ValidationError))
 				require.Empty(t, shortURL)
 				require.Empty(t, store.urls)
 				return

@@ -28,6 +28,9 @@ func New(s URLService, log Logger) *chi.Mux {
 
 	router.Get("/{key}", h.expand)
 	router.Post("/", h.shorten)
+	router.Route("/api", func(r chi.Router) {
+		r.Post("/shorten", h.shortenJSON)
+	})
 
 	return router
 }

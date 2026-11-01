@@ -8,6 +8,7 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/v-gevak/goshortener/internal/model"
 	"github.com/v-gevak/goshortener/internal/storeerr"
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
@@ -16,10 +17,6 @@ const (
 	keyLength                = 8
 	alphabet                 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	maxKeyGenerationAttempts = 100
-)
-
-var (
-	ErrInvalidURL = errors.New("invalid URL")
 )
 
 type URLStore interface {
@@ -46,10 +43,10 @@ func New(store URLStore, settings Settings) (*Service, error) {
 
 func (s *Service) Shorten(originalURL string) (string, error) {
 	if _, err := urlutil.ValidateHTTPURL(originalURL); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidURL, err)
+		return "", model.ValidationError("invalid URL: " + err.Error())
 	}
 
-	for i := 0; i < maxKeyGenerationAttempts; i++ {
+	for range maxKeyGenerationAttempts {
 		key := s.generateKey()
 
 		if err := s.store.SetIfAbsent(key, originalURL); err != nil {
