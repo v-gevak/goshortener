@@ -25,6 +25,7 @@ func New(s URLService, log Logger) *chi.Mux {
 	h := &Handler{service: s, log: log}
 
 	router.Use(withLogging(log))
+	router.Use(withGzip)
 
 	router.Get("/{key}", h.expand)
 	router.Post("/", h.shorten)
