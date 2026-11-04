@@ -216,6 +216,15 @@ func TestHandler_Compression(t *testing.T) {
 			expectedBody:     "Request Entity Too Large\n",
 			expectedEncoding: "gzip",
 		},
+		{
+			name:            "unsupported content-encoding returns 415",
+			path:            "/api/shorten",
+			body:            compressedJSON,
+			contentEncoding: "br",
+			acceptEncoding:  "gzip",
+			expectedStatus:  http.StatusUnsupportedMediaType,
+			expectedBody:    "unsupported Content-Encoding\n",
+		},
 	}
 
 	for _, tt := range tests {

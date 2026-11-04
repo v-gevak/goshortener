@@ -48,7 +48,7 @@ func withGzipResponse(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Accept-Encoding")
 
-		if !hasEncoding(r.Header.Values("Accept-Encoding"), "gzip") {
+		if !acceptsGzip(r.Header.Values("Accept-Encoding")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -77,8 +77,16 @@ func (r *gzipRequestBody) Read(b []byte) (int, error) {
 
 func withGzipRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !hasEncoding(r.Header.Values("Content-Encoding"), "gzip") {
+		encodings := parseContentEncodings(r.Header.Values("Content-Encoding"))
+
+		if (len(encodings) == 0) || (len(encodings) == 1 && encodings[0] == "identity") {
 			next.ServeHTTP(w, r)
+			return
+		}
+
+		if len(encodings) != 1 || encodings[0] != "gzip" {
+			w.Header().Add("Accept-Encoding", "gzip")
+			http.Error(w, "unsupported Content-Encoding", http.StatusUnsupportedMediaType)
 			return
 		}
 
@@ -98,15 +106,28 @@ func withGzipRequest(next http.Handler) http.Handler {
 	})
 }
 
-func hasEncoding(values []string, encoding string) bool {
-	encoding = strings.ToLower(encoding)
-
-	for _, v := range values {
-		if strings.Contains(strings.ToLower(v), encoding) {
+func acceptsGzip(values []string) bool {
+	for _, value := range values {
+		if strings.Contains(strings.ToLower(value), "gzip") {
 			return true
 		}
 	}
 	return false
+}
+
+func parseContentEncodings(values []string) []string {
+	var encodings []string
+
+	for _, value := range values {
+		for encoding := range strings.SplitSeq(value, ",") {
+			encoding = strings.ToLower(strings.TrimSpace(encoding))
+			if encoding != "" {
+				encodings = append(encodings, encoding)
+			}
+		}
+	}
+
+	return encodings
 }
 
 func withGzip(next http.Handler) http.Handler {
