@@ -7,7 +7,7 @@ import (
 
 type URLService interface {
 	Shorten(originalURL string) (string, error)
-	Expand(key string) (string, bool)
+	Expand(key string) (string, error)
 }
 
 type Logger interface {

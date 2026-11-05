@@ -37,7 +37,18 @@ func run() error {
 		}
 	}()
 
-	store := repository.New()
+	store, err := repository.New(storeSettings(cfg))
+	if err != nil {
+		log.Error("cannot create store", logger.Error(err))
+		return err
+	}
+
+	defer func() {
+		if err := store.Close(); err != nil {
+			log.Error("store close error", logger.Error(err))
+		}
+	}()
+
 	svc, err := service.New(store, serviceSettings(cfg))
 	if err != nil {
 		log.Error("cannot create service", logger.Error(err))
@@ -67,5 +78,12 @@ func logSettings(cfg *config.Config) logger.Settings {
 		EnableFile:    cfg.LogSettings.EnableFile,
 		EnableConsole: cfg.LogSettings.EnableConsole,
 		FilePath:      cfg.LogSettings.FilePath,
+	}
+}
+
+func storeSettings(cfg *config.Config) repository.StoreSettings {
+	return repository.StoreSettings{
+		Provider: cfg.StoreSettings.Provider,
+		FilePath: cfg.StoreSettings.FilePath,
 	}
 }

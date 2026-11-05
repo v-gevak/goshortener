@@ -15,10 +15,16 @@ type LogSettings struct {
 	FilePath      string
 }
 
+type StoreSettings struct {
+	Provider string
+	FilePath string
+}
+
 type Config struct {
 	ServiceSettings ServiceSettings
 	ServerSettings  ServerSettings
 	LogSettings     LogSettings
+	StoreSettings   StoreSettings
 }
 
 func New() (*Config, error) {
@@ -37,6 +43,10 @@ func setDefaults(cfg *Config) {
 	cfg.LogSettings.EnableConsole = true
 	cfg.LogSettings.EnableFile = false
 	cfg.LogSettings.FilePath = "goshortener.log"
+
 	cfg.ServiceSettings.BaseURL = "http://localhost:8080"
 	cfg.ServerSettings.Address = "localhost:8080"
+
+	cfg.StoreSettings.Provider = "file"
+	cfg.StoreSettings.FilePath = "storage.jsonl"
 }

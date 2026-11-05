@@ -6,21 +6,22 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/v-gevak/goshortener/internal/storeerr"
 )
 
 func TestHandler_expand(t *testing.T) {
 	tests := []struct {
 		name               string
 		key                string
-		expand             func(key string) (string, bool)
+		expand             func(key string) (string, error)
 		expectedStatusCode int
 		expectedLocation   string
 	}{
 		{
 			name: "should redirect when url exists",
 			key:  "ABCD1234",
-			expand: func(key string) (string, bool) {
-				return "https://www.google.com", true
+			expand: func(key string) (string, error) {
+				return "https://www.google.com", nil
 			},
 			expectedStatusCode: http.StatusTemporaryRedirect,
 			expectedLocation:   "https://www.google.com",
@@ -28,8 +29,8 @@ func TestHandler_expand(t *testing.T) {
 		{
 			name: "should return 404 when url not found",
 			key:  "zzzzzzzz",
-			expand: func(key string) (string, bool) {
-				return "", false
+			expand: func(key string) (string, error) {
+				return "", storeerr.ErrKeyNotFound
 			},
 			expectedStatusCode: http.StatusNotFound,
 			expectedLocation:   "",

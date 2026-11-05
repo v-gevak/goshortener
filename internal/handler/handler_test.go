@@ -13,11 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/v-gevak/goshortener/internal/repository"
 	"github.com/v-gevak/goshortener/internal/service"
+	"github.com/v-gevak/goshortener/internal/storeerr"
 )
 
 func TestHandler_ShortenAndExpand(t *testing.T) {
 	baseURL := "http://example.com/"
-	svc, err := service.New(repository.New(), service.Settings{BaseURL: baseURL})
+	store, err := repository.New(repository.StoreSettings{Provider: "in-memory"})
+	require.NoError(t, err)
+	svc, err := service.New(store, service.Settings{BaseURL: baseURL})
 	require.NoError(t, err)
 	h := New(svc, &mockLogger{})
 
@@ -60,7 +63,7 @@ func TestHandler_Router(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/ABCD",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   "URL not found\n",
+			expectedBody:   "Not Found\n",
 			wantExpandCall: true,
 		},
 		{
@@ -82,9 +85,9 @@ func TestHandler_Router(t *testing.T) {
 					shortenCalled = true
 					return "http://example.com/ABCD", nil
 				},
-				expand: func(key string) (string, bool) {
+				expand: func(key string) (string, error) {
 					expandCalled = true
-					return "", false
+					return "", storeerr.ErrKeyNotFound
 				},
 			}
 

@@ -1,36 +1,48 @@
 package repository
 
 import (
-	"sync"
-
-	"github.com/v-gevak/goshortener/internal/storeerr"
+	"errors"
 )
 
+type storeProvider interface {
+	Get(string) (string, error)
+	SetIfAbsent(key, originalURL string) (string, error)
+	Close() error
+}
+
 type Store struct {
-	urls map[string]string
-	mux  sync.Mutex
+	provider storeProvider
 }
 
-func New() *Store {
-	return &Store{urls: make(map[string]string)}
+type StoreSettings struct {
+	FilePath string
+	Provider string
 }
 
-func (s *Store) Get(key string) (string, bool) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+func New(settings StoreSettings) (*Store, error) {
+	var provider storeProvider
+	var err error
 
-	v, ok := s.urls[key]
-	return v, ok
-}
-
-func (s *Store) SetIfAbsent(key, originalURL string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if _, exists := s.urls[key]; exists {
-		return storeerr.ErrKeyExists
+	switch settings.Provider {
+	case "in-memory":
+		provider = newInMemoryProvider()
+	case "file":
+		provider, err = newFileProvider(settings.FilePath)
+	default:
+		return nil, errors.New("unknown store provider")
 	}
 
-	s.urls[key] = originalURL
-	return nil
+	return &Store{provider: provider}, err
+}
+
+func (s *Store) Get(key string) (string, error) {
+	return s.provider.Get(key)
+}
+
+func (s *Store) SetIfAbsent(key, originalURL string) (string, error) {
+	return s.provider.SetIfAbsent(key, originalURL)
+}
+
+func (s *Store) Close() error {
+	return s.provider.Close()
 }

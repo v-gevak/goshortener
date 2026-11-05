@@ -11,6 +11,8 @@ func parseEnvs(cfg *Config) error {
 	setEnvString("BASE_URL", &cfg.ServiceSettings.BaseURL)
 	setEnvString("LOG_LEVEL", &cfg.LogSettings.Level)
 	setEnvString("FILE_LOGGING_PATH", &cfg.LogSettings.FilePath)
+	setEnvString("FILE_STORAGE_PATH", &cfg.StoreSettings.FilePath)
+	setEnvString("STORAGE_PROVIDER", &cfg.StoreSettings.Provider)
 
 	if err := setEnvBool("ENABLE_FILE_LOGGING", &cfg.LogSettings.EnableFile); err != nil {
 		return err

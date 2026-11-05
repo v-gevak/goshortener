@@ -8,10 +8,10 @@ import (
 
 func (h *Handler) expand(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
-	originalURL, ok := h.service.Expand(key)
+	originalURL, err := h.service.Expand(key)
 
-	if !ok {
-		http.Error(w, "URL not found", http.StatusNotFound)
+	if err != nil {
+		h.writeError(w, err)
 		return
 	}
 

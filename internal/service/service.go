@@ -20,8 +20,8 @@ const (
 )
 
 type URLStore interface {
-	SetIfAbsent(key string, originalURL string) error
-	Get(key string) (string, bool)
+	SetIfAbsent(key string, originalURL string) (string, error)
+	Get(key string) (string, error)
 }
 
 type Settings struct {
@@ -47,13 +47,12 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 	}
 
 	for range maxKeyGenerationAttempts {
-		key := s.generateKey()
+		key, err := s.store.SetIfAbsent(s.generateKey(), originalURL)
+		if errors.Is(err, storeerr.ErrKeyExists) {
+			continue
+		}
 
-		if err := s.store.SetIfAbsent(key, originalURL); err != nil {
-			if errors.Is(err, storeerr.ErrKeyExists) {
-				continue
-			}
-
+		if err != nil {
 			return "", err
 		}
 
@@ -63,7 +62,7 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 	return "", errors.New("failed to generate unique key")
 }
 
-func (s *Service) Expand(key string) (string, bool) {
+func (s *Service) Expand(key string) (string, error) {
 	return s.store.Get(key)
 }
 

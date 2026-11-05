@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/v-gevak/goshortener/internal/model"
+	"github.com/v-gevak/goshortener/internal/storeerr"
 )
 
 type mockURLStore struct {
@@ -19,14 +20,18 @@ func newMockURLStore() *mockURLStore {
 	}
 }
 
-func (m *mockURLStore) SetIfAbsent(key, value string) error {
+func (m *mockURLStore) SetIfAbsent(key, value string) (string, error) {
 	m.urls[key] = value
-	return nil
+	return key, nil
 }
 
-func (m *mockURLStore) Get(key string) (string, bool) {
+func (m *mockURLStore) Get(key string) (string, error) {
 	value, ok := m.urls[key]
-	return value, ok
+	if !ok {
+		return "", storeerr.ErrKeyNotFound
+	}
+
+	return value, nil
 }
 
 func TestService_Shorten(t *testing.T) {
@@ -78,8 +83,8 @@ func TestService_Shorten(t *testing.T) {
 				assert.True(t, strings.ContainsRune(alphabet, char))
 			}
 
-			stored, ok := store.Get(key)
-			require.True(t, ok)
+			stored, err := store.Get(key)
+			require.NoError(t, err)
 			assert.Equal(t, tt.originalURL, stored)
 
 		})
@@ -118,19 +123,19 @@ func TestService_Expand(t *testing.T) {
 	tests := []struct {
 		name        string
 		key         string
-		exists      bool
+		wantErr     error
 		originalURL string
 	}{
 		{
 			name:        "returns original URL when key exists",
 			key:         "ABCD1234",
-			exists:      true,
+			wantErr:     nil,
 			originalURL: "https://www.google.com",
 		},
 		{
-			name:        "returns false when key does not exist",
+			name:        "returns error when key does not exist",
 			key:         "NOTFOUND",
-			exists:      false,
+			wantErr:     storeerr.ErrKeyNotFound,
 			originalURL: "",
 		},
 	}
@@ -141,14 +146,19 @@ func TestService_Expand(t *testing.T) {
 			svc, err := New(mockStore, Settings{BaseURL: "http://example.com"})
 			require.NoError(t, err)
 
-			if tt.exists {
-				err := mockStore.SetIfAbsent(tt.key, tt.originalURL)
+			if tt.wantErr == nil {
+				_, err := mockStore.SetIfAbsent(tt.key, tt.originalURL)
 				require.NoError(t, err)
 			}
 
-			url, ok := svc.Expand(tt.key)
+			url, err := svc.Expand(tt.key)
 
-			assert.Equal(t, tt.exists, ok)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
 			assert.Equal(t, tt.originalURL, url)
 		})
 	}
