@@ -38,15 +38,20 @@ func TestHandler_expand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New(
-				&mockURLService{expand: tt.expand},
-				&mockLogger{},
-			)
+			svc := &mockURLService{
+				expand: func(key string) (string, error) {
+					assert.Equal(t, tt.key, key)
+					return tt.expand(key)
+				},
+			}
+			logger := &mockLogger{}
+			h := New(svc, logger)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.key, nil)
-			w := httptest.NewRecorder()
+			request.SetPathValue("key", tt.key)
 
-			h.ServeHTTP(w, request)
+			w := httptest.NewRecorder()
+			h.Expand(w, request)
 
 			assert.Equal(t, tt.expectedStatusCode, w.Code)
 			assert.Equal(t, tt.expectedLocation, w.Header().Get("Location"))

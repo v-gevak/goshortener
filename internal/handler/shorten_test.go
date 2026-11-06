@@ -57,7 +57,7 @@ func TestHandler_shorten(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()
 
-			h.shorten(w, request)
+			h.Shorten(w, request)
 
 			res := w.Result()
 
@@ -136,7 +136,7 @@ func TestHandler_shortenJSON(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()
 
-			h.shortenJSON(w, request)
+			h.ShortenJSON(w, request)
 
 			res := w.Result()
 

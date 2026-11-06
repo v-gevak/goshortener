@@ -17,7 +17,7 @@ type shortenResponse struct {
 	Result string `json:"result"`
 }
 
-func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	body, err := readRequestBody(w, r)
 	if err != nil {
 		h.writeError(w, err)
@@ -42,7 +42,7 @@ func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) shortenJSON(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 	body, err := readRequestBody(w, r)
 	if err != nil {
 		h.writeError(w, err)

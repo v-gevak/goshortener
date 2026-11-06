@@ -1,4 +1,4 @@
-package handler
+package router
 
 import (
 	"bytes"
@@ -11,18 +11,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/v-gevak/goshortener/internal/handler"
 	"github.com/v-gevak/goshortener/internal/repository"
 	"github.com/v-gevak/goshortener/internal/service"
 	"github.com/v-gevak/goshortener/internal/storeerr"
 )
 
-func TestHandler_ShortenAndExpand(t *testing.T) {
+func TestRouter_ShortenAndExpand(t *testing.T) {
 	baseURL := "http://example.com/"
 	store, err := repository.New(repository.StoreSettings{Provider: "in-memory"})
 	require.NoError(t, err)
 	svc, err := service.New(store, service.Settings{BaseURL: baseURL})
 	require.NoError(t, err)
-	h := New(svc, &mockLogger{})
+	log := &mockLogger{}
+	h := New(handler.New(svc, log), log)
 
 	const originalURL = "https://example.org/page"
 	shortenResponse := httptest.NewRecorder()
@@ -38,7 +40,7 @@ func TestHandler_ShortenAndExpand(t *testing.T) {
 
 }
 
-func TestHandler_Router(t *testing.T) {
+func TestRouter_Routes(t *testing.T) {
 	tests := []struct {
 		name            string
 		method          string
@@ -91,7 +93,8 @@ func TestHandler_Router(t *testing.T) {
 				},
 			}
 
-			h := New(svc, &mockLogger{})
+			log := &mockLogger{}
+			h := New(handler.New(svc, log), log)
 
 			r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
@@ -106,7 +109,7 @@ func TestHandler_Router(t *testing.T) {
 	}
 }
 
-func TestHandler_Compression(t *testing.T) {
+func TestRouter_Compression(t *testing.T) {
 	const originalURL = "http://google.com"
 	const shortURL = "http://example.com/ABCD"
 	const jsonResponse = `{"result":"http://example.com/ABCD"}`
@@ -235,7 +238,7 @@ func TestHandler_Compression(t *testing.T) {
 				},
 			}
 			log := &mockLogger{}
-			h := New(svc, log)
+			h := New(handler.New(svc, log), log)
 
 			r := httptest.NewRequest(http.MethodPost, tt.path, bytes.NewReader(tt.body))
 			if tt.contentEncoding != "" {

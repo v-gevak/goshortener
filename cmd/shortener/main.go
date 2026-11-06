@@ -9,6 +9,7 @@ import (
 	"github.com/v-gevak/goshortener/internal/handler"
 	"github.com/v-gevak/goshortener/internal/logger"
 	"github.com/v-gevak/goshortener/internal/repository"
+	"github.com/v-gevak/goshortener/internal/router"
 	"github.com/v-gevak/goshortener/internal/service"
 )
 
@@ -56,9 +57,10 @@ func run() error {
 	}
 
 	h := handler.New(svc, log)
+	r := router.New(h, log)
 
 	log.Info("starting HTTP server", logger.String("address", cfg.ServerSettings.Address))
-	if err := http.ListenAndServe(cfg.ServerSettings.Address, h); err != nil {
+	if err := http.ListenAndServe(cfg.ServerSettings.Address, r); err != nil {
 		log.Error("HTTP server failed", logger.Error(err))
 		return err
 	}

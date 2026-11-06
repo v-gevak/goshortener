@@ -1,13 +1,9 @@
 package handler
 
-import (
-	"net/http"
+import "net/http"
 
-	"github.com/go-chi/chi/v5"
-)
-
-func (h *Handler) expand(w http.ResponseWriter, r *http.Request) {
-	key := chi.URLParam(r, "key")
+func (h *Handler) Expand(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
 	originalURL, err := h.service.Expand(key)
 
 	if err != nil {
