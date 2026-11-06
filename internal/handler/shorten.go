@@ -18,7 +18,7 @@ type shortenResponse struct {
 }
 
 func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
-	body, err := readRequestBody(r)
+	body, err := readRequestBody(w, r)
 	if err != nil {
 		h.writeError(w, err)
 		return
@@ -43,7 +43,7 @@ func (h *Handler) shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) shortenJSON(w http.ResponseWriter, r *http.Request) {
-	body, err := readRequestBody(r)
+	body, err := readRequestBody(w, r)
 	if err != nil {
 		h.writeError(w, err)
 		return
@@ -76,8 +76,8 @@ func (h *Handler) shortenJSON(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func readRequestBody(r *http.Request) ([]byte, error) {
+func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
 
-	return io.ReadAll(http.MaxBytesReader(nil, r.Body, 64*1024))
+	return io.ReadAll(http.MaxBytesReader(w, r.Body, 64*1024))
 }

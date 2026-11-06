@@ -35,30 +35,12 @@ func withLogging(log Logger) func(http.Handler) http.Handler {
 	}
 }
 
-type gzipResponseWriter struct {
-	http.ResponseWriter
-	Writer io.Writer
-}
-
-func (w *gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
-
 func withGzipResponse(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Vary", "Accept-Encoding")
-
-		if !acceptsGzip(r.Header.Values("Accept-Encoding")) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-
-		w.Header().Set("Content-Encoding", "gzip")
-		next.ServeHTTP(&gzipResponseWriter{ResponseWriter: w, Writer: gz}, r)
-	})
+	return middleware.Compress(
+		gzip.DefaultCompression,
+		"application/json",
+		"text/html",
+	)(next)
 }
 
 type gzipRequestBody struct {
