@@ -8,6 +8,7 @@ import (
 	"github.com/v-gevak/goshortener/internal/logger"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -source=router.go -destination=mocks/router_mock.go -package=mocks -typed
 type Logger interface {
 	Info(msg string, fields ...logger.Field)
 }

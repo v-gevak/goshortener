@@ -19,6 +19,7 @@ const (
 	maxKeyGenerationAttempts = 100
 )
 
+//go:generate go run go.uber.org/mock/mockgen -source=service.go -destination=mocks/url_mock.go -package=mocks -typed
 type URLStore interface {
 	SetIfAbsent(url *entity.URL) (*entity.URL, error)
 	Get(key string) (*entity.URL, error)

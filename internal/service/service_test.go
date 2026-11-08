@@ -8,32 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/entity"
+	"github.com/v-gevak/goshortener/internal/service/mocks"
+	"go.uber.org/mock/gomock"
 )
-
-type mockURLStore struct {
-	urls map[string]entity.URL
-}
-
-func newMockURLStore() *mockURLStore {
-	return &mockURLStore{
-		urls: make(map[string]entity.URL),
-	}
-}
-
-func (m *mockURLStore) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
-	stored := *url
-	m.urls[stored.Key] = stored
-	return &stored, nil
-}
-
-func (m *mockURLStore) Get(key string) (*entity.URL, error) {
-	value, ok := m.urls[key]
-	if !ok {
-		return nil, apperrors.ErrNotFound
-	}
-
-	return &value, nil
-}
 
 func TestService_Shorten(t *testing.T) {
 	tests := []struct {
@@ -61,7 +38,17 @@ func TestService_Shorten(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			const baseURL = "http://example.com"
 
-			store := newMockURLStore()
+			store := mocks.NewMockURLStore(gomock.NewController(t))
+			var stored entity.URL
+			if !tt.wantErr {
+				store.EXPECT().SetIfAbsent(gomock.Any()).
+					DoAndReturn(func(url *entity.URL) (*entity.URL, error) {
+						require.NotNil(t, url)
+						stored = *url
+						return url, nil
+					})
+			}
+
 			svc, err := New(store, Settings{BaseURL: baseURL})
 			require.NoError(t, err)
 
@@ -73,7 +60,6 @@ func TestService_Shorten(t *testing.T) {
 				assert.Equal(t, "url", validationErr.Field)
 				assert.NotEmpty(t, validationErr.Message)
 				require.Empty(t, shortURL)
-				require.Empty(t, store.urls)
 				return
 			}
 
@@ -87,9 +73,7 @@ func TestService_Shorten(t *testing.T) {
 				assert.True(t, strings.ContainsRune(alphabet, char))
 			}
 
-			stored, err := store.Get(key)
-			require.NoError(t, err)
-			assert.Equal(t, &entity.URL{Key: key, Original: tt.originalURL}, stored)
+			assert.Equal(t, entity.URL{Key: key, Original: tt.originalURL}, stored)
 
 		})
 	}
@@ -112,7 +96,8 @@ func TestService_New_InvalidBaseURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(newMockURLStore(), Settings{BaseURL: tt.baseURL})
+			store := mocks.NewMockURLStore(gomock.NewController(t))
+			_, err := New(store, Settings{BaseURL: tt.baseURL})
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -146,14 +131,15 @@ func TestService_Expand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := newMockURLStore()
-			svc, err := New(mockStore, Settings{BaseURL: "http://example.com"})
-			require.NoError(t, err)
-
+			store := mocks.NewMockURLStore(gomock.NewController(t))
+			var stored *entity.URL
 			if tt.wantErr == nil {
-				_, err := mockStore.SetIfAbsent(&entity.URL{Key: tt.key, Original: tt.originalURL})
-				require.NoError(t, err)
+				stored = &entity.URL{Key: tt.key, Original: tt.originalURL}
 			}
+			store.EXPECT().Get(tt.key).Return(stored, tt.wantErr)
+
+			svc, err := New(store, Settings{BaseURL: "http://example.com"})
+			require.NoError(t, err)
 
 			url, err := svc.Expand(tt.key)
 

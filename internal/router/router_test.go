@@ -13,8 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/handler"
+	handlermocks "github.com/v-gevak/goshortener/internal/handler/mocks"
+	"github.com/v-gevak/goshortener/internal/logger"
 	"github.com/v-gevak/goshortener/internal/repository"
+	"github.com/v-gevak/goshortener/internal/router/mocks"
 	"github.com/v-gevak/goshortener/internal/service"
+	"go.uber.org/mock/gomock"
 )
 
 func TestRouter_ShortenAndExpand(t *testing.T) {
@@ -23,8 +27,13 @@ func TestRouter_ShortenAndExpand(t *testing.T) {
 	require.NoError(t, err)
 	svc, err := service.New(store, service.Settings{BaseURL: baseURL})
 	require.NoError(t, err)
-	log := &mockLogger{}
-	h := New(handler.New(svc, log), log)
+	ctrl := gomock.NewController(t)
+	log := mocks.NewMockLogger(ctrl)
+	log.EXPECT().Info("HTTP request completed",
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Times(2)
+	handlerLog := handlermocks.NewMockLogger(ctrl)
+	h := New(handler.New(svc, handlerLog), log)
 
 	const originalURL = "https://example.org/page"
 	shortenResponse := httptest.NewRecorder()
@@ -79,22 +88,24 @@ func TestRouter_Routes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortenCalled := false
-			expandCalled := false
-
-			svc := &mockURLService{
-				shorten: func(originalURL string) (string, error) {
-					shortenCalled = true
-					return "http://example.com/ABCD", nil
-				},
-				expand: func(key string) (string, error) {
-					expandCalled = true
-					return "", apperrors.ErrNotFound
-				},
+			ctrl := gomock.NewController(t)
+			svc := handlermocks.NewMockURLService(ctrl)
+			if tt.wantShortenCall {
+				svc.EXPECT().Shorten(tt.body).Return("http://example.com/ABCD", nil)
+			}
+			if tt.wantExpandCall {
+				svc.EXPECT().Expand(strings.TrimPrefix(tt.path, "/")).Return("", apperrors.ErrNotFound)
 			}
 
-			log := &mockLogger{}
-			h := New(handler.New(svc, log), log)
+			log := mocks.NewMockLogger(ctrl)
+			log.EXPECT().Info("HTTP request completed",
+				logger.String("request URI", tt.path),
+				logger.String("method", tt.method),
+				logger.Int("status", tt.expectedStatus),
+				gomock.Any(), gomock.Any(),
+			)
+			handlerLog := handlermocks.NewMockLogger(ctrl)
+			h := New(handler.New(svc, handlerLog), log)
 
 			r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
@@ -103,8 +114,6 @@ func TestRouter_Routes(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			assert.Equal(t, tt.expectedBody, w.Body.String())
-			assert.Equal(t, tt.wantShortenCall, shortenCalled)
-			assert.Equal(t, tt.wantExpandCall, expandCalled)
 		})
 	}
 }
@@ -232,13 +241,20 @@ func TestRouter_Compression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockURLService{
-				shorten: func(url string) (string, error) {
-					return shortURL, nil
-				},
+			ctrl := gomock.NewController(t)
+			svc := handlermocks.NewMockURLService(ctrl)
+			if tt.expectedStatus == http.StatusCreated {
+				svc.EXPECT().Shorten(originalURL).Return(shortURL, nil)
 			}
-			log := &mockLogger{}
-			h := New(handler.New(svc, log), log)
+			log := mocks.NewMockLogger(ctrl)
+			log.EXPECT().Info("HTTP request completed",
+				logger.String("request URI", tt.path),
+				logger.String("method", http.MethodPost),
+				logger.Int("status", tt.expectedStatus),
+				gomock.Any(), gomock.Any(),
+			)
+			handlerLog := handlermocks.NewMockLogger(ctrl)
+			h := New(handler.New(svc, handlerLog), log)
 
 			r := httptest.NewRequest(http.MethodPost, tt.path, bytes.NewReader(tt.body))
 			if tt.contentEncoding != "" {
