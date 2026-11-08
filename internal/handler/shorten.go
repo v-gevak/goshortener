@@ -6,16 +6,9 @@ import (
 	"net/http"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/dto"
 	"github.com/v-gevak/goshortener/internal/logger"
 )
-
-type shortenRequest struct {
-	URL string `json:"url"`
-}
-
-type shortenResponse struct {
-	Result string `json:"result"`
-}
 
 func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	body, err := readRequestBody(w, r)
@@ -49,7 +42,7 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request shortenRequest
+	var request dto.ShortenRequest
 
 	if err := json.Unmarshal(body, &request); err != nil {
 		h.writeError(w, &apperrors.ValidationError{Message: "invalid JSON request body"})
@@ -67,7 +60,7 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := shortenResponse{Result: shortURL}
+	response := dto.ShortenResponse{Result: shortURL}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
