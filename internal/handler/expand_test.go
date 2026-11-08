@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/v-gevak/goshortener/internal/storeerr"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 )
 
 func TestHandler_expand(t *testing.T) {
@@ -30,7 +30,7 @@ func TestHandler_expand(t *testing.T) {
 			name: "should return 404 when url not found",
 			key:  "zzzzzzzz",
 			expand: func(key string) (string, error) {
-				return "", storeerr.ErrKeyNotFound
+				return "", apperrors.ErrNotFound
 			},
 			expectedStatusCode: http.StatusNotFound,
 			expectedLocation:   "",

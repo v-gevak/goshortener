@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/handler"
 	"github.com/v-gevak/goshortener/internal/repository"
 	"github.com/v-gevak/goshortener/internal/service"
-	"github.com/v-gevak/goshortener/internal/storeerr"
 )
 
 func TestRouter_ShortenAndExpand(t *testing.T) {
@@ -89,7 +89,7 @@ func TestRouter_Routes(t *testing.T) {
 				},
 				expand: func(key string) (string, error) {
 					expandCalled = true
-					return "", storeerr.ErrKeyNotFound
+					return "", apperrors.ErrNotFound
 				},
 			}
 
@@ -199,7 +199,7 @@ func TestRouter_Compression(t *testing.T) {
 			body:            []byte("not a gzip body"),
 			contentEncoding: "gzip",
 			expectedStatus:  http.StatusBadRequest,
-			expectedBody:    "invalid gzip body\n",
+			expectedBody:    "validation failed: invalid gzip body\n",
 		},
 		{
 			name:            "truncated gzip returns uncompressed 400",
@@ -208,7 +208,7 @@ func TestRouter_Compression(t *testing.T) {
 			contentEncoding: "gzip",
 			acceptEncoding:  "gzip",
 			expectedStatus:  http.StatusBadRequest,
-			expectedBody:    "invalid gzip body\n",
+			expectedBody:    "validation failed: invalid gzip body\n",
 		},
 		{
 			name:            "decompressed body over limit returns uncompressed 413",

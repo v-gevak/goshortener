@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/logger"
-	"github.com/v-gevak/goshortener/internal/model"
 )
 
 func withLogging(log Logger) func(http.Handler) http.Handler {
@@ -51,7 +51,7 @@ func (r *gzipRequestBody) Read(b []byte) (int, error) {
 	n, err := r.Reader.Read(b)
 
 	if err != nil && !errors.Is(err, io.EOF) {
-		return n, model.ValidationError("invalid gzip body")
+		return n, &apperrors.ValidationError{Message: "invalid gzip body"}
 	}
 
 	return n, err
@@ -74,7 +74,8 @@ func withGzipRequest(next http.Handler) http.Handler {
 
 		zr, err := gzip.NewReader(r.Body)
 		if err != nil {
-			http.Error(w, "invalid gzip body", http.StatusBadRequest)
+			validationErr := &apperrors.ValidationError{Message: "invalid gzip body"}
+			http.Error(w, validationErr.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -86,15 +87,6 @@ func withGzipRequest(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func acceptsGzip(values []string) bool {
-	for _, value := range values {
-		if strings.Contains(strings.ToLower(value), "gzip") {
-			return true
-		}
-	}
-	return false
 }
 
 func parseContentEncodings(values []string) []string {

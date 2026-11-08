@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/v-gevak/goshortener/internal/storeerr"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 )
 
 func TestProviders(t *testing.T) {
@@ -40,7 +40,7 @@ func TestProviders(t *testing.T) {
 				assert.Equal(t, key, storedKey)
 
 				_, err = store.SetIfAbsent(key, "https://b.com/page")
-				require.ErrorIs(t, err, storeerr.ErrKeyExists)
+				require.ErrorIs(t, err, apperrors.ErrConflict)
 
 				gotURL, err := store.Get(key)
 				require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestProviders(t *testing.T) {
 			name: "fails if url doesn't exist",
 			run: func(t *testing.T, store *Store) {
 				gotURL, err := store.Get("missing")
-				assert.ErrorIs(t, err, storeerr.ErrKeyNotFound)
+				assert.ErrorIs(t, err, apperrors.ErrNotFound)
 				assert.Empty(t, gotURL)
 			},
 		},
@@ -75,7 +75,7 @@ func TestProviders(t *testing.T) {
 				assert.Equal(t, originalURL, gotURL)
 
 				_, err = store.Get(secondKey)
-				assert.ErrorIs(t, err, storeerr.ErrKeyNotFound)
+				assert.ErrorIs(t, err, apperrors.ErrNotFound)
 			},
 		},
 	}

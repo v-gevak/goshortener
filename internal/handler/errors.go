@@ -4,9 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/logger"
-	"github.com/v-gevak/goshortener/internal/model"
-	"github.com/v-gevak/goshortener/internal/storeerr"
 )
 
 func (h *Handler) writeError(w http.ResponseWriter, err error) {
@@ -25,11 +24,11 @@ func errorResponse(err error) (int, string) {
 			http.StatusText(http.StatusRequestEntityTooLarge)
 	}
 
-	if validationErr, ok := errors.AsType[model.ValidationError](err); ok {
+	if validationErr, ok := errors.AsType[*apperrors.ValidationError](err); ok {
 		return http.StatusBadRequest, validationErr.Error()
 	}
 
-	if errors.Is(err, storeerr.ErrKeyNotFound) {
+	if errors.Is(err, apperrors.ErrNotFound) {
 		return http.StatusNotFound, http.StatusText(http.StatusNotFound)
 	}
 

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"uuid"
 
-	"github.com/v-gevak/goshortener/internal/storeerr"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
@@ -68,7 +68,7 @@ func (p *fileProvider) findItem(match func(item Item) (bool, error)) (*Item, err
 		line, err := p.fileReader.ReadBytes('\n')
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return nil, storeerr.ErrKeyNotFound
+				return nil, apperrors.ErrNotFound
 			}
 
 			return nil, err
@@ -108,12 +108,12 @@ func (p *fileProvider) SetIfAbsent(key, originalURL string) (string, error) {
 		return item.ShortURL, nil
 	}
 
-	if !errors.Is(err, storeerr.ErrKeyNotFound) {
+	if !errors.Is(err, apperrors.ErrNotFound) {
 		return "", err
 	}
 
 	if keyExists {
-		return "", storeerr.ErrKeyExists
+		return "", apperrors.ErrConflict
 	}
 
 	item = &Item{

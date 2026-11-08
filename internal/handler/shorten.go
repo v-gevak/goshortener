@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/logger"
-	"github.com/v-gevak/goshortener/internal/model"
 )
 
 type shortenRequest struct {
@@ -25,7 +25,7 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(body) == 0 {
-		h.writeError(w, model.ValidationError("empty body"))
+		h.writeError(w, &apperrors.ValidationError{Message: "empty body"})
 		return
 	}
 
@@ -52,12 +52,12 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 	var request shortenRequest
 
 	if err := json.Unmarshal(body, &request); err != nil {
-		h.writeError(w, model.ValidationError("invalid JSON request body"))
+		h.writeError(w, &apperrors.ValidationError{Message: "invalid JSON request body"})
 		return
 	}
 
 	if request.URL == "" {
-		h.writeError(w, model.ValidationError("missing `URL` in request body"))
+		h.writeError(w, &apperrors.ValidationError{Field: "url", Message: "must not be empty"})
 		return
 	}
 

@@ -29,7 +29,7 @@ func TestHandler_shorten(t *testing.T) {
 			name:                "should return error `empty body`",
 			body:                io.NopCloser(strings.NewReader("")),
 			expectedStatusCode:  http.StatusBadRequest,
-			expectedBody:        "empty body\n",
+			expectedBody:        "validation failed: empty body\n",
 			expectedContentType: "text/plain; charset=utf-8",
 		},
 		{
@@ -84,17 +84,17 @@ func TestHandler_shortenJSON(t *testing.T) {
 		svc                 *mockURLService
 	}{
 		{
-			name:                "return error missing `URL` in request body",
+			name:                "return error missing url in request body",
 			body:                io.NopCloser(strings.NewReader(`{"a":"b"}`)),
 			expectedStatusCode:  http.StatusBadRequest,
-			expectedBody:        "missing `URL` in request body\n",
+			expectedBody:        "validation failed: url: must not be empty\n",
 			expectedContentType: "text/plain; charset=utf-8",
 		},
 		{
 			name:                "return error for malformed JSON",
 			body:                io.NopCloser(strings.NewReader(`{"url":`)),
 			expectedStatusCode:  http.StatusBadRequest,
-			expectedBody:        "invalid JSON request body\n",
+			expectedBody:        "validation failed: invalid JSON request body\n",
 			expectedContentType: "text/plain; charset=utf-8",
 		},
 		{

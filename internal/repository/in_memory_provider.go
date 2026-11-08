@@ -3,7 +3,7 @@ package repository
 import (
 	"sync"
 
-	"github.com/v-gevak/goshortener/internal/storeerr"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
@@ -25,7 +25,7 @@ func (p *inMemoryProvider) Get(key string) (string, error) {
 	v, ok := p.urls[key]
 
 	if !ok {
-		return "", storeerr.ErrKeyNotFound
+		return "", apperrors.ErrNotFound
 	}
 
 	return v, nil
@@ -47,7 +47,7 @@ func (p *inMemoryProvider) SetIfAbsent(key, originalURL string) (string, error) 
 	}
 
 	if _, exists := p.urls[key]; exists {
-		return "", storeerr.ErrKeyExists
+		return "", apperrors.ErrConflict
 	}
 
 	p.urls[key] = originalURL

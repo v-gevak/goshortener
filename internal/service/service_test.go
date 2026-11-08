@@ -6,8 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/v-gevak/goshortener/internal/model"
-	"github.com/v-gevak/goshortener/internal/storeerr"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 )
 
 type mockURLStore struct {
@@ -28,7 +27,7 @@ func (m *mockURLStore) SetIfAbsent(key, value string) (string, error) {
 func (m *mockURLStore) Get(key string) (string, error) {
 	value, ok := m.urls[key]
 	if !ok {
-		return "", storeerr.ErrKeyNotFound
+		return "", apperrors.ErrNotFound
 	}
 
 	return value, nil
@@ -67,7 +66,10 @@ func TestService_Shorten(t *testing.T) {
 			shortURL, err := svc.Shorten(tt.originalURL)
 
 			if tt.wantErr {
-				require.ErrorAs(t, err, new(model.ValidationError))
+				var validationErr *apperrors.ValidationError
+				require.ErrorAs(t, err, &validationErr)
+				assert.Equal(t, "url", validationErr.Field)
+				assert.NotEmpty(t, validationErr.Message)
 				require.Empty(t, shortURL)
 				require.Empty(t, store.urls)
 				return
@@ -135,7 +137,7 @@ func TestService_Expand(t *testing.T) {
 		{
 			name:        "returns error when key does not exist",
 			key:         "NOTFOUND",
-			wantErr:     storeerr.ErrKeyNotFound,
+			wantErr:     apperrors.ErrNotFound,
 			originalURL: "",
 		},
 	}
