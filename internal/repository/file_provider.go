@@ -11,6 +11,7 @@ import (
 	"uuid"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/entity"
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
@@ -43,7 +44,7 @@ type Item struct {
 	OriginalURL string    `json:"original_url"`
 }
 
-func (p *fileProvider) Get(key string) (string, error) {
+func (p *fileProvider) Get(key string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -52,10 +53,10 @@ func (p *fileProvider) Get(key string) (string, error) {
 	})
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return item.OriginalURL, nil
+	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
 func (p *fileProvider) findItem(match func(item Item) (bool, error)) (*Item, error) {
@@ -90,43 +91,43 @@ func (p *fileProvider) findItem(match func(item Item) (bool, error)) (*Item, err
 	}
 }
 
-func (p *fileProvider) SetIfAbsent(key, originalURL string) (string, error) {
+func (p *fileProvider) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
 	keyExists := false
 
 	item, err := p.findItem(func(item Item) (bool, error) {
-		if item.ShortURL == key {
+		if item.ShortURL == url.Key {
 			keyExists = true
 		}
 
-		return urlutil.CompareURLs(item.OriginalURL, originalURL)
+		return urlutil.CompareURLs(item.OriginalURL, url.Original)
 	})
 
 	if err == nil {
-		return item.ShortURL, nil
+		return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 	}
 
 	if !errors.Is(err, apperrors.ErrNotFound) {
-		return "", err
+		return nil, err
 	}
 
 	if keyExists {
-		return "", apperrors.ErrConflict
+		return nil, apperrors.ErrConflict
 	}
 
 	item = &Item{
 		UUID:        uuid.New(),
-		ShortURL:    key,
-		OriginalURL: originalURL,
+		ShortURL:    url.Key,
+		OriginalURL: url.Original,
 	}
 
 	if err := json.MarshalEncode(p.fileWriter, item); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return item.ShortURL, nil
+	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
 func (p *fileProvider) Close() error {

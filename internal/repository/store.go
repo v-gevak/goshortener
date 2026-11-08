@@ -2,11 +2,13 @@ package repository
 
 import (
 	"errors"
+
+	"github.com/v-gevak/goshortener/internal/entity"
 )
 
 type storeProvider interface {
-	Get(string) (string, error)
-	SetIfAbsent(key, originalURL string) (string, error)
+	Get(key string) (*entity.URL, error)
+	SetIfAbsent(url *entity.URL) (*entity.URL, error)
 	Close() error
 }
 
@@ -35,12 +37,12 @@ func New(settings StoreSettings) (*Store, error) {
 	return &Store{provider: provider}, err
 }
 
-func (s *Store) Get(key string) (string, error) {
+func (s *Store) Get(key string) (*entity.URL, error) {
 	return s.provider.Get(key)
 }
 
-func (s *Store) SetIfAbsent(key, originalURL string) (string, error) {
-	return s.provider.SetIfAbsent(key, originalURL)
+func (s *Store) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+	return s.provider.SetIfAbsent(url)
 }
 
 func (s *Store) Close() error {

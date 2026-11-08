@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/entity"
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
@@ -19,8 +20,8 @@ const (
 )
 
 type URLStore interface {
-	SetIfAbsent(key string, originalURL string) (string, error)
-	Get(key string) (string, error)
+	SetIfAbsent(url *entity.URL) (*entity.URL, error)
+	Get(key string) (*entity.URL, error)
 }
 
 type Settings struct {
@@ -46,7 +47,10 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 	}
 
 	for range maxKeyGenerationAttempts {
-		key, err := s.store.SetIfAbsent(s.generateKey(), originalURL)
+		storedURL, err := s.store.SetIfAbsent(&entity.URL{
+			Key:      s.generateKey(),
+			Original: originalURL,
+		})
 		if errors.Is(err, apperrors.ErrConflict) {
 			continue
 		}
@@ -55,14 +59,20 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 			return "", err
 		}
 
-		return url.JoinPath(s.settings.BaseURL, key)
+		return url.JoinPath(s.settings.BaseURL, storedURL.Key)
 	}
 
 	return "", errors.New("failed to generate unique key")
 }
 
 func (s *Service) Expand(key string) (string, error) {
-	return s.store.Get(key)
+	storedEntity, err := s.store.Get(key)
+
+	if err != nil {
+		return "", err
+	}
+
+	return storedEntity.Original, nil
 }
 
 func (s *Service) generateKey() string {

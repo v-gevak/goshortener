@@ -7,30 +7,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/entity"
 )
 
 type mockURLStore struct {
-	urls map[string]string
+	urls map[string]entity.URL
 }
 
 func newMockURLStore() *mockURLStore {
 	return &mockURLStore{
-		urls: make(map[string]string),
+		urls: make(map[string]entity.URL),
 	}
 }
 
-func (m *mockURLStore) SetIfAbsent(key, value string) (string, error) {
-	m.urls[key] = value
-	return key, nil
+func (m *mockURLStore) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+	stored := *url
+	m.urls[stored.Key] = stored
+	return &stored, nil
 }
 
-func (m *mockURLStore) Get(key string) (string, error) {
+func (m *mockURLStore) Get(key string) (*entity.URL, error) {
 	value, ok := m.urls[key]
 	if !ok {
-		return "", apperrors.ErrNotFound
+		return nil, apperrors.ErrNotFound
 	}
 
-	return value, nil
+	return &value, nil
 }
 
 func TestService_Shorten(t *testing.T) {
@@ -87,7 +89,7 @@ func TestService_Shorten(t *testing.T) {
 
 			stored, err := store.Get(key)
 			require.NoError(t, err)
-			assert.Equal(t, tt.originalURL, stored)
+			assert.Equal(t, &entity.URL{Key: key, Original: tt.originalURL}, stored)
 
 		})
 	}
@@ -149,7 +151,7 @@ func TestService_Expand(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.wantErr == nil {
-				_, err := mockStore.SetIfAbsent(tt.key, tt.originalURL)
+				_, err := mockStore.SetIfAbsent(&entity.URL{Key: tt.key, Original: tt.originalURL})
 				require.NoError(t, err)
 			}
 
