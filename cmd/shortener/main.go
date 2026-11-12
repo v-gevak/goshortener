@@ -120,7 +120,7 @@ func logSettings(cfg *config.Config) logger.Settings {
 
 func storeSettings(cfg *config.Config) repository.StoreSettings {
 	return repository.StoreSettings{
-		Provider: cfg.StoreSettings.Provider,
 		FilePath: cfg.StoreSettings.FilePath,
+		DBDSN:    cfg.StoreSettings.DBDSN,
 	}
 }

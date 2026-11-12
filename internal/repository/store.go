@@ -1,50 +1,52 @@
 package repository
 
 import (
-	"errors"
-
 	"github.com/v-gevak/goshortener/internal/entity"
 )
 
-type storeProvider interface {
+type storage interface {
 	Get(key string) (*entity.URL, error)
 	SetIfAbsent(url *entity.URL) (*entity.URL, error)
+	Ping() error
 	Close() error
 }
 
 type Store struct {
-	provider storeProvider
+	storage storage
 }
 
 type StoreSettings struct {
 	FilePath string
-	Provider string
+	DBDSN    string
 }
 
 func New(settings StoreSettings) (*Store, error) {
-	var provider storeProvider
+	var repo storage
 	var err error
 
-	switch settings.Provider {
-	case "in-memory":
-		provider = newInMemoryProvider()
-	case "file":
-		provider, err = newFileProvider(settings.FilePath)
-	default:
-		return nil, errors.New("unknown store provider")
+	if settings.DBDSN != "" {
+		repo, err = newDBStorage(settings.DBDSN)
+	} else if settings.FilePath != "" {
+		repo, err = newFileStorage(settings.FilePath)
+	} else {
+		repo = newInMemoryStorage()
 	}
 
-	return &Store{provider: provider}, err
+	return &Store{storage: repo}, err
 }
 
 func (s *Store) Get(key string) (*entity.URL, error) {
-	return s.provider.Get(key)
+	return s.storage.Get(key)
 }
 
 func (s *Store) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
-	return s.provider.SetIfAbsent(url)
+	return s.storage.SetIfAbsent(url)
+}
+
+func (s *Store) Ping() error {
+	return s.storage.Ping()
 }
 
 func (s *Store) Close() error {
-	return s.provider.Close()
+	return s.storage.Close()
 }

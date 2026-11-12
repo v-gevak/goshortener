@@ -23,6 +23,7 @@ const (
 type URLStore interface {
 	SetIfAbsent(url *entity.URL) (*entity.URL, error)
 	Get(key string) (*entity.URL, error)
+	Ping() error
 }
 
 type Settings struct {
@@ -74,6 +75,10 @@ func (s *Service) Expand(key string) (string, error) {
 	}
 
 	return storedEntity.Original, nil
+}
+
+func (s *Service) Ping() error {
+	return s.store.Ping()
 }
 
 func (s *Service) generateKey() string {

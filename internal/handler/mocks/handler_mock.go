@@ -79,6 +79,44 @@ func (c *MockURLServiceExpandCall) DoAndReturn(f func(string) (string, error)) *
 	return c
 }
 
+// Ping mocks base method.
+func (m *MockURLService) Ping() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ping")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Ping indicates an expected call of Ping.
+func (mr *MockURLServiceMockRecorder) Ping() *MockURLServicePingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockURLService)(nil).Ping))
+	return &MockURLServicePingCall{Call: call}
+}
+
+// MockURLServicePingCall wrap *gomock.Call
+type MockURLServicePingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockURLServicePingCall) Return(arg0 error) *MockURLServicePingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockURLServicePingCall) Do(f func() error) *MockURLServicePingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockURLServicePingCall) DoAndReturn(f func() error) *MockURLServicePingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Shorten mocks base method.
 func (m *MockURLService) Shorten(originalURL string) (string, error) {
 	m.ctrl.T.Helper()

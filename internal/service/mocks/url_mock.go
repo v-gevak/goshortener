@@ -79,6 +79,44 @@ func (c *MockURLStoreGetCall) DoAndReturn(f func(string) (*entity.URL, error)) *
 	return c
 }
 
+// Ping mocks base method.
+func (m *MockURLStore) Ping() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ping")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Ping indicates an expected call of Ping.
+func (mr *MockURLStoreMockRecorder) Ping() *MockURLStorePingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockURLStore)(nil).Ping))
+	return &MockURLStorePingCall{Call: call}
+}
+
+// MockURLStorePingCall wrap *gomock.Call
+type MockURLStorePingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockURLStorePingCall) Return(arg0 error) *MockURLStorePingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockURLStorePingCall) Do(f func() error) *MockURLStorePingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockURLStorePingCall) DoAndReturn(f func() error) *MockURLStorePingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetIfAbsent mocks base method.
 func (m *MockURLStore) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 	m.ctrl.T.Helper()

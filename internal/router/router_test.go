@@ -23,8 +23,12 @@ import (
 
 func TestRouter_ShortenAndExpand(t *testing.T) {
 	baseURL := "http://example.com/"
-	store, err := repository.New(repository.StoreSettings{Provider: "in-memory"})
+	store, err := repository.New(repository.StoreSettings{})
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, store.Close())
+	})
+
 	svc, err := service.New(store, service.Settings{BaseURL: baseURL})
 	require.NoError(t, err)
 	ctrl := gomock.NewController(t)

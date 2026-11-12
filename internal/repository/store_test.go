@@ -10,7 +10,7 @@ import (
 	"github.com/v-gevak/goshortener/internal/entity"
 )
 
-func TestProviders(t *testing.T) {
+func TestStorage(t *testing.T) {
 	tests := []struct {
 		name string
 		run  func(*testing.T, *Store)
@@ -88,10 +88,12 @@ func TestProviders(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					store, err := New(StoreSettings{
-						Provider: kind,
-						FilePath: filepath.Join(t.TempDir(), "storage.jsonl"),
-					})
+					settings := StoreSettings{}
+					if kind == "file" {
+						settings.FilePath = filepath.Join(t.TempDir(), "storage.jsonl")
+					}
+
+					store, err := New(settings)
 					require.NoError(t, err)
 
 					t.Cleanup(func() {

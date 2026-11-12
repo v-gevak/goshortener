@@ -16,8 +16,8 @@ type LogSettings struct {
 }
 
 type StoreSettings struct {
-	Provider string
 	FilePath string
+	DBDSN    string
 }
 
 type Config struct {
@@ -47,6 +47,6 @@ func setDefaults(cfg *Config) {
 	cfg.ServiceSettings.BaseURL = "http://localhost:8080"
 	cfg.ServerSettings.Address = "localhost:8080"
 
-	cfg.StoreSettings.Provider = "file"
-	cfg.StoreSettings.FilePath = "storage.jsonl"
+	cfg.StoreSettings.FilePath = ""
+	cfg.StoreSettings.DBDSN = ""
 }

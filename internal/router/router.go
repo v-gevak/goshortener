@@ -19,6 +19,8 @@ func New(h *handler.Handler, log Logger) http.Handler {
 	router.Use(withLogging(log))
 	router.Use(withGzip)
 
+	router.Get("/ping", h.Ping)
+	router.Get("/favicon.ico", http.NotFound)
 	router.Get("/{key}", h.Expand)
 	router.Post("/", h.Shorten)
 	router.Route("/api", func(r chi.Router) {

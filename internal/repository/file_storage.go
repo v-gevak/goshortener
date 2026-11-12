@@ -15,7 +15,7 @@ import (
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
-type fileProvider struct {
+type fileStorage struct {
 	file       *os.File
 	filePath   string
 	fileReader *bufio.Reader
@@ -23,14 +23,14 @@ type fileProvider struct {
 	mux        sync.Mutex
 }
 
-func newFileProvider(filePath string) (*fileProvider, error) {
+func newFileStorage(filePath string) (*fileStorage, error) {
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &fileProvider{
+	return &fileStorage{
 		filePath:   filePath,
 		fileReader: bufio.NewReader(file),
 		fileWriter: jsontext.NewEncoder(file),
@@ -44,7 +44,7 @@ type Item struct {
 	OriginalURL string    `json:"original_url"`
 }
 
-func (p *fileProvider) Get(key string) (*entity.URL, error) {
+func (p *fileStorage) Get(key string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -59,7 +59,7 @@ func (p *fileProvider) Get(key string) (*entity.URL, error) {
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
-func (p *fileProvider) findItem(match func(item Item) (bool, error)) (*Item, error) {
+func (p *fileStorage) findItem(match func(item Item) (bool, error)) (*Item, error) {
 	if _, err := p.file.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (p *fileProvider) findItem(match func(item Item) (bool, error)) (*Item, err
 	}
 }
 
-func (p *fileProvider) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+func (p *fileStorage) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -130,6 +130,10 @@ func (p *fileProvider) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
-func (p *fileProvider) Close() error {
+func (p *fileStorage) Ping() error {
+	return nil
+}
+
+func (p *fileStorage) Close() error {
 	return p.file.Close()
 }

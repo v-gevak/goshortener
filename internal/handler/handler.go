@@ -8,6 +8,7 @@ import (
 type URLService interface {
 	Shorten(originalURL string) (string, error)
 	Expand(key string) (string, error)
+	Ping() error
 }
 
 type Logger interface {

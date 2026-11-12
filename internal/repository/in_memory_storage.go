@@ -8,18 +8,18 @@ import (
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
-type inMemoryProvider struct {
+type inMemoryStorage struct {
 	urls map[string]entity.URL
 	mux  sync.Mutex
 }
 
-func newInMemoryProvider() *inMemoryProvider {
-	return &inMemoryProvider{
+func newInMemoryStorage() *inMemoryStorage {
+	return &inMemoryStorage{
 		urls: make(map[string]entity.URL),
 	}
 }
 
-func (p *inMemoryProvider) Get(key string) (*entity.URL, error) {
+func (p *inMemoryStorage) Get(key string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -32,7 +32,7 @@ func (p *inMemoryProvider) Get(key string) (*entity.URL, error) {
 	return &v, nil
 }
 
-func (p *inMemoryProvider) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+func (p *inMemoryStorage) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -56,6 +56,10 @@ func (p *inMemoryProvider) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 	return url, nil
 }
 
-func (p *inMemoryProvider) Close() error {
+func (p *inMemoryStorage) Ping() error {
+	return nil
+}
+
+func (p *inMemoryStorage) Close() error {
 	return nil
 }
