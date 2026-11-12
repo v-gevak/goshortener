@@ -1,3 +1,5 @@
+.DS_Store
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -11,6 +13,8 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+*.log
+
 # Binaries
 cmd/shortener/main
 cmd/shortener/shortener
@@ -21,3 +25,5 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+*storage.jsonl
