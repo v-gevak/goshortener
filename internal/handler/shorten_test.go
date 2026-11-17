@@ -42,7 +42,7 @@ func TestHandler_shorten(t *testing.T) {
 		},
 		{
 			name:                "should return error `413`",
-			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 65*1024))),
+			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 16*1024+1))),
 			expectedStatusCode:  http.StatusRequestEntityTooLarge,
 			expectedBody:        "Request Entity Too Large\n",
 			expectedContentType: "text/plain; charset=utf-8",
@@ -108,7 +108,7 @@ func TestHandler_shortenJSON(t *testing.T) {
 		},
 		{
 			name:                "return error `413`",
-			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 65*1024))),
+			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 16*1024+1))),
 			expectedStatusCode:  http.StatusRequestEntityTooLarge,
 			expectedBody:        "Request Entity Too Large\n",
 			expectedContentType: "text/plain; charset=utf-8",

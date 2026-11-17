@@ -23,21 +23,7 @@ func ValidateHTTPURL(rawURL string) (*url.URL, error) {
 	return u, nil
 }
 
-func CompareURLs(a, b string) (bool, error) {
-	normalizedA, err := normalizeHTTPURL(a)
-	if err != nil {
-		return false, err
-	}
-
-	normalizedB, err := normalizeHTTPURL(b)
-	if err != nil {
-		return false, err
-	}
-
-	return normalizedA == normalizedB, nil
-}
-
-func normalizeHTTPURL(rawURL string) (string, error) {
+func NormalizeHTTPURL(rawURL string) (string, error) {
 	u, err := ValidateHTTPURL(rawURL)
 	if err != nil {
 		return "", err
@@ -53,9 +39,12 @@ func normalizeHTTPURL(rawURL string) (string, error) {
 		u.Host = strings.TrimSuffix(u.Host, ":"+port)
 	}
 
-	if u.Path == "" {
-		u.Path = "/"
+	escapedPath := strings.TrimRight(u.EscapedPath(), "/")
+	u.Path, err = url.PathUnescape(escapedPath)
+	if err != nil {
+		return "", err
 	}
+	u.RawPath = escapedPath
 
 	return u.String(), nil
 }

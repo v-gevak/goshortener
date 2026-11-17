@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"path"
 	"strconv"
@@ -13,15 +12,11 @@ import (
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
-const (
-	keyLength                = 8
-	alphabet                 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	maxKeyGenerationAttempts = 100
-)
+const maxURLLength = 2048
 
 //go:generate go run go.uber.org/mock/mockgen -source=service.go -destination=mocks/url_mock.go -package=mocks -typed
 type URLStore interface {
-	SetIfAbsent(url *entity.URL) (*entity.URL, error)
+	SetIfAbsent(originalURL string) (*entity.URL, error)
 	Get(key string) (*entity.URL, error)
 	Ping() error
 }
@@ -44,27 +39,25 @@ func New(store URLStore, settings Settings) (*Service, error) {
 }
 
 func (s *Service) Shorten(originalURL string) (string, error) {
-	if _, err := urlutil.ValidateHTTPURL(originalURL); err != nil {
+	normalizedURL, err := urlutil.NormalizeHTTPURL(originalURL)
+	if err != nil {
 		return "", &apperrors.ValidationError{Field: "url", Message: err.Error()}
 	}
 
-	for range maxKeyGenerationAttempts {
-		storedURL, err := s.store.SetIfAbsent(&entity.URL{
-			Key:      s.generateKey(),
-			Original: originalURL,
-		})
-		if errors.Is(err, apperrors.ErrConflict) {
-			continue
+	if len(normalizedURL) > maxURLLength {
+		return "", &apperrors.ValidationError{
+			Field:   "url",
+			Message: fmt.Sprintf("must not exceed %d bytes after normalization", maxURLLength),
 		}
-
-		if err != nil {
-			return "", err
-		}
-
-		return url.JoinPath(s.settings.BaseURL, storedURL.Key)
 	}
 
-	return "", errors.New("failed to generate unique key")
+	storedURL, err := s.store.SetIfAbsent(normalizedURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	return url.JoinPath(s.settings.BaseURL, storedURL.Key)
 }
 
 func (s *Service) Expand(key string) (string, error) {
@@ -79,16 +72,6 @@ func (s *Service) Expand(key string) (string, error) {
 
 func (s *Service) Ping() error {
 	return s.store.Ping()
-}
-
-func (s *Service) generateKey() string {
-	key := make([]byte, keyLength)
-
-	for i := range key {
-		key[i] = alphabet[rand.Intn(len(alphabet))]
-	}
-
-	return string(key)
 }
 
 func validateBaseURL(rawURL string) error {

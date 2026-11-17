@@ -72,5 +72,5 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
 
-	return io.ReadAll(http.MaxBytesReader(w, r.Body, 64*1024))
+	return io.ReadAll(http.MaxBytesReader(w, r.Body, 16*1024))
 }

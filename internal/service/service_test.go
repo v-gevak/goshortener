@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +8,7 @@ import (
 	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/entity"
 	"github.com/v-gevak/goshortener/internal/service/mocks"
+	"github.com/v-gevak/goshortener/internal/urlutil"
 	"go.uber.org/mock/gomock"
 )
 
@@ -37,16 +37,14 @@ func TestService_Shorten(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			const baseURL = "http://example.com"
+			const storedKey = "aB1"
 
 			store := mocks.NewMockURLStore(gomock.NewController(t))
-			var stored entity.URL
 			if !tt.wantErr {
-				store.EXPECT().SetIfAbsent(gomock.Any()).
-					DoAndReturn(func(url *entity.URL) (*entity.URL, error) {
-						require.NotNil(t, url)
-						stored = *url
-						return url, nil
-					})
+				normalizedURL, err := urlutil.NormalizeHTTPURL(tt.originalURL)
+				assert.NoError(t, err)
+				store.EXPECT().SetIfAbsent(normalizedURL).
+					Return(&entity.URL{Key: storedKey, Original: normalizedURL}, nil)
 			}
 
 			svc, err := New(store, Settings{BaseURL: baseURL})
@@ -64,17 +62,7 @@ func TestService_Shorten(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.True(t, strings.HasPrefix(shortURL, baseURL+"/"))
-
-			key := strings.TrimPrefix(shortURL, baseURL+"/")
-			assert.Len(t, key, keyLength)
-
-			for _, char := range key {
-				assert.True(t, strings.ContainsRune(alphabet, char))
-			}
-
-			assert.Equal(t, entity.URL{Key: key, Original: tt.originalURL}, stored)
-
+			assert.Equal(t, baseURL+"/"+storedKey, shortURL)
 		})
 	}
 }

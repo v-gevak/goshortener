@@ -8,11 +8,10 @@ import (
 	"io"
 	"os"
 	"sync"
-	"uuid"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/base62"
 	"github.com/v-gevak/goshortener/internal/entity"
-	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
 type fileStorage struct {
@@ -20,6 +19,7 @@ type fileStorage struct {
 	filePath   string
 	fileReader *bufio.Reader
 	fileWriter *jsontext.Encoder
+	lastID     int64
 	mux        sync.Mutex
 }
 
@@ -30,26 +30,54 @@ func newFileStorage(filePath string) (*fileStorage, error) {
 		return nil, err
 	}
 
-	return &fileStorage{
+	store := &fileStorage{
 		filePath:   filePath,
 		fileReader: bufio.NewReader(file),
 		fileWriter: jsontext.NewEncoder(file),
 		file:       file,
-	}, err
+	}
+	if err := store.restoreLastID(); err != nil {
+		file.Close()
+		return nil, err
+	}
+
+	return store, nil
 }
 
 type Item struct {
-	UUID        uuid.UUID `json:"uuid"`
-	ShortURL    string    `json:"short_url"`
-	OriginalURL string    `json:"original_url"`
+	ID          int64  `json:"id"`
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+func (p *fileStorage) restoreLastID() error {
+	for {
+		line, err := p.fileReader.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		if len(line) == 0 {
+			return nil
+		}
+
+		var item Item
+		if err := json.Unmarshal(line, &item); err != nil {
+			return err
+		}
+		p.lastID = item.ID
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+	}
 }
 
 func (p *fileStorage) Get(key string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
-	item, err := p.findItem(func(item Item) (bool, error) {
-		return item.ShortURL == key, nil
+	item, err := p.findItem(func(item Item) bool {
+		return item.ShortURL == key
 	})
 
 	if err != nil {
@@ -59,7 +87,7 @@ func (p *fileStorage) Get(key string) (*entity.URL, error) {
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
-func (p *fileStorage) findItem(match func(item Item) (bool, error)) (*Item, error) {
+func (p *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
 	if _, err := p.file.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
@@ -81,28 +109,18 @@ func (p *fileStorage) findItem(match func(item Item) (bool, error)) (*Item, erro
 			return nil, err
 		}
 
-		matches, err := match(item)
-		if err != nil {
-			return nil, err
-		}
-		if matches {
+		if match(item) {
 			return &item, nil
 		}
 	}
 }
 
-func (p *fileStorage) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+func (p *fileStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
-	keyExists := false
-
-	item, err := p.findItem(func(item Item) (bool, error) {
-		if item.ShortURL == url.Key {
-			keyExists = true
-		}
-
-		return urlutil.CompareURLs(item.OriginalURL, url.Original)
+	item, err := p.findItem(func(item Item) bool {
+		return item.OriginalURL == originalURL
 	})
 
 	if err == nil {
@@ -113,19 +131,18 @@ func (p *fileStorage) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
 		return nil, err
 	}
 
-	if keyExists {
-		return nil, apperrors.ErrConflict
-	}
+	id := p.lastID + 1
 
 	item = &Item{
-		UUID:        uuid.New(),
-		ShortURL:    url.Key,
-		OriginalURL: url.Original,
+		ID:          id,
+		ShortURL:    base62.EncodeID(id),
+		OriginalURL: originalURL,
 	}
 
 	if err := json.MarshalEncode(p.fileWriter, item); err != nil {
 		return nil, err
 	}
+	p.lastID = id
 
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }

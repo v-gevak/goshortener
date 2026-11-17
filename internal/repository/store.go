@@ -6,7 +6,7 @@ import (
 
 type storage interface {
 	Get(key string) (*entity.URL, error)
-	SetIfAbsent(url *entity.URL) (*entity.URL, error)
+	SetIfAbsent(originalURL string) (*entity.URL, error)
 	Ping() error
 	Close() error
 }
@@ -39,8 +39,8 @@ func (s *Store) Get(key string) (*entity.URL, error) {
 	return s.storage.Get(key)
 }
 
-func (s *Store) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
-	return s.storage.SetIfAbsent(url)
+func (s *Store) SetIfAbsent(originalURL string) (*entity.URL, error) {
+	return s.storage.SetIfAbsent(originalURL)
 }
 
 func (s *Store) Ping() error {

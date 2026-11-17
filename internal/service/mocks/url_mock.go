@@ -118,18 +118,18 @@ func (c *MockURLStorePingCall) DoAndReturn(f func() error) *MockURLStorePingCall
 }
 
 // SetIfAbsent mocks base method.
-func (m *MockURLStore) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+func (m *MockURLStore) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetIfAbsent", url)
+	ret := m.ctrl.Call(m, "SetIfAbsent", originalURL)
 	ret0, _ := ret[0].(*entity.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SetIfAbsent indicates an expected call of SetIfAbsent.
-func (mr *MockURLStoreMockRecorder) SetIfAbsent(url any) *MockURLStoreSetIfAbsentCall {
+func (mr *MockURLStoreMockRecorder) SetIfAbsent(originalURL any) *MockURLStoreSetIfAbsentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIfAbsent", reflect.TypeOf((*MockURLStore)(nil).SetIfAbsent), url)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIfAbsent", reflect.TypeOf((*MockURLStore)(nil).SetIfAbsent), originalURL)
 	return &MockURLStoreSetIfAbsentCall{Call: call}
 }
 
@@ -145,13 +145,13 @@ func (c *MockURLStoreSetIfAbsentCall) Return(arg0 *entity.URL, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLStoreSetIfAbsentCall) Do(f func(*entity.URL) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
+func (c *MockURLStoreSetIfAbsentCall) Do(f func(string) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLStoreSetIfAbsentCall) DoAndReturn(f func(*entity.URL) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
+func (c *MockURLStoreSetIfAbsentCall) DoAndReturn(f func(string) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

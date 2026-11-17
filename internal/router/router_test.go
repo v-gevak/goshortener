@@ -44,7 +44,7 @@ func TestRouter_ShortenAndExpand(t *testing.T) {
 	h.ServeHTTP(shortenResponse, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(originalURL)))
 	require.Equal(t, http.StatusCreated, shortenResponse.Code)
 	shortURL := shortenResponse.Body.String()
-	require.Regexp(t, `^http://example\.com/[a-zA-Z0-9]{8}$`, shortURL)
+	require.Regexp(t, `^http://example\.com/[a-zA-Z0-9]$`, shortURL)
 
 	expandResponse := httptest.NewRecorder()
 	h.ServeHTTP(expandResponse, httptest.NewRequest(http.MethodGet, shortURL, nil))
@@ -189,7 +189,7 @@ func TestRouter_Compression(t *testing.T) {
 			expectedBody:    shortURL,
 		},
 		{
-			name:             "uppercase accepted encoding",
+			name:             "uppercase accepted base62",
 			path:             "/api/shorten",
 			body:             jsonBody,
 			acceptEncoding:   "GZIP",
@@ -226,14 +226,14 @@ func TestRouter_Compression(t *testing.T) {
 		{
 			name:            "decompressed body over limit returns uncompressed 413",
 			path:            "/api/shorten",
-			body:            compress(bytes.Repeat([]byte("a"), 64*1024+1)),
+			body:            compress(bytes.Repeat([]byte("a"), 16*1024+1)),
 			contentEncoding: "gzip",
 			acceptEncoding:  "gzip",
 			expectedStatus:  http.StatusRequestEntityTooLarge,
 			expectedBody:    "Request Entity Too Large\n",
 		},
 		{
-			name:            "unsupported content-encoding returns 415",
+			name:            "unsupported content-base62 returns 415",
 			path:            "/api/shorten",
 			body:            compressedJSON,
 			contentEncoding: "br",

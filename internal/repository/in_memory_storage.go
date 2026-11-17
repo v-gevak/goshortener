@@ -4,13 +4,14 @@ import (
 	"sync"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/base62"
 	"github.com/v-gevak/goshortener/internal/entity"
-	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
 type inMemoryStorage struct {
-	urls map[string]entity.URL
-	mux  sync.Mutex
+	lastID int64
+	urls   map[string]entity.URL
+	mux    sync.Mutex
 }
 
 func newInMemoryStorage() *inMemoryStorage {
@@ -32,28 +33,27 @@ func (p *inMemoryStorage) Get(key string) (*entity.URL, error) {
 	return &v, nil
 }
 
-func (p *inMemoryStorage) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
+func (p *inMemoryStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
 	for _, urlEntity := range p.urls {
-		matches, err := urlutil.CompareURLs(urlEntity.Original, url.Original)
-		if err != nil {
-			return nil, err
-		}
-
-		if matches {
+		if urlEntity.Original == originalURL {
 			return &urlEntity, nil
 		}
 	}
 
-	if _, exists := p.urls[url.Key]; exists {
-		return nil, apperrors.ErrConflict
+	id := p.lastID + 1
+	key := base62.EncodeID(id)
+	e := entity.URL{
+		Original: originalURL,
+		Key:      key,
 	}
 
-	p.urls[url.Key] = *url
+	p.urls[key] = e
+	p.lastID = id
 
-	return url, nil
+	return &e, nil
 }
 
 func (p *inMemoryStorage) Ping() error {
