@@ -21,7 +21,6 @@ type fileStorage struct {
 	file       *os.File
 	filePath   string
 	fileReader *bufio.Reader
-	fileWriter *jsontext.Encoder
 	lastID     int64
 	mux        sync.Mutex
 }
@@ -36,7 +35,6 @@ func newFileStorage(filePath string) (*fileStorage, error) {
 	store := &fileStorage{
 		filePath:   filePath,
 		fileReader: bufio.NewReader(file),
-		fileWriter: jsontext.NewEncoder(file),
 		file:       file,
 	}
 	if err := store.restoreLastID(); err != nil {
@@ -99,12 +97,11 @@ func (s *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
 
 	for {
 		line, err := s.fileReader.ReadBytes('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil, apperrors.ErrNotFound
-			}
-
+		if err != nil && !errors.Is(err, io.EOF) {
 			return nil, err
+		}
+		if len(line) == 0 {
+			return nil, apperrors.ErrNotFound
 		}
 
 		var item Item
@@ -143,7 +140,11 @@ func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 		OriginalURL: originalURL,
 	}
 
-	if err := json.MarshalEncode(s.fileWriter, item); err != nil {
+	data, err := json.Marshal(item)
+	if err != nil {
+		return nil, err
+	}
+	if err := appendRecords(s.file, append(data, '\n')); err != nil {
 		return nil, err
 	}
 	s.lastID = id
@@ -199,8 +200,7 @@ func (s *fileStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string)
 		return result, nil
 	}
 
-	data := buffer.Bytes()
-	if err := appendBatch(s.file, data); err != nil {
+	if err := appendRecords(s.file, buffer.Bytes()); err != nil {
 		return nil, err
 	}
 
@@ -208,12 +208,22 @@ func (s *fileStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string)
 	return result, nil
 }
 
-func appendBatch(file *os.File, data []byte) error {
+func appendRecords(file *os.File, data []byte) error {
 	info, err := file.Stat()
 	if err != nil {
 		return err
 	}
 	fileSizeBeforeWrite := info.Size()
+	if fileSizeBeforeWrite > 0 {
+		var lastByte [1]byte
+		if _, err := file.ReadAt(lastByte[:], fileSizeBeforeWrite-1); err != nil {
+			return err
+		}
+		if lastByte[0] != '\n' {
+			data = append([]byte{'\n'}, data...)
+		}
+	}
+
 	n, err := file.Write(data)
 	if err == nil && n != len(data) {
 		err = io.ErrShortWrite
@@ -221,7 +231,7 @@ func appendBatch(file *os.File, data []byte) error {
 
 	if err != nil {
 		if rollbackErr := file.Truncate(fileSizeBeforeWrite); rollbackErr != nil {
-			return errors.Join(err, fmt.Errorf("rollback batch: %w", rollbackErr))
+			return errors.Join(err, fmt.Errorf("rollback append: %w", rollbackErr))
 		}
 		return err
 	}
