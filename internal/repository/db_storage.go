@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/v-gevak/goshortener/internal/apperrors"
@@ -12,8 +13,16 @@ import (
 	"github.com/v-gevak/goshortener/migrations"
 )
 
+const (
+	findByOriginal = `SELECT short_key, original_url FROM links WHERE original_url = $1`
+)
+
 type dbStorage struct {
 	db *sql.DB
+}
+
+type queryRower interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 func newDBStorage(dsn string) (*dbStorage, error) {
@@ -47,14 +56,54 @@ func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
 }
 
 func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
-	const findByOriginal = `
-        SELECT short_key, original_url
-        FROM links
-        WHERE original_url = $1
-    `
+	return setOrGetUrl(ctx, s.db, originalURL)
+}
 
+func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error) {
+	orderedURLs := slices.Clone(originalURLs)
+	slices.Sort(orderedURLs)
+	orderedURLs = slices.Compact(orderedURLs)
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer tx.Rollback()
+
+	byURL := make(map[string]*entity.URL, len(orderedURLs))
+	for _, originalURL := range orderedURLs {
+		stored, err := setOrGetUrl(ctx, tx, originalURL)
+		if err != nil {
+			return nil, err
+		}
+
+		byURL[originalURL] = stored
+	}
+
+	result := make([]*entity.URL, len(originalURLs))
+	for i, originalURL := range originalURLs {
+		result[i] = byURL[originalURL]
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *dbStorage) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
+func (s *dbStorage) Close() error {
+	return s.db.Close()
+}
+
+func setOrGetUrl(ctx context.Context, conn queryRower, originalURL string) (*entity.URL, error) {
 	e := new(entity.URL)
-	err := s.db.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
+	err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
 
 	if err == nil {
 		return e, nil
@@ -65,14 +114,14 @@ func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entit
 	}
 
 	var id int64
-	err = s.db.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&id)
+	err = conn.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
 
 	shortKey := base62.EncodeID(id)
 
-	err = s.db.QueryRowContext(
+	err = conn.QueryRowContext(
 		ctx,
 		`INSERT INTO links (id, short_key, original_url)
 				VALUES ($1, $2, $3)
@@ -83,7 +132,7 @@ func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entit
 	).Scan(&e.Key, &e.Original)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		err = s.db.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
+		err = conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
 	}
 
 	if err != nil {
@@ -91,12 +140,4 @@ func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entit
 	}
 
 	return e, nil
-}
-
-func (s *dbStorage) Ping(ctx context.Context) error {
-	return s.db.PingContext(ctx)
-}
-
-func (s *dbStorage) Close() error {
-	return s.db.Close()
 }

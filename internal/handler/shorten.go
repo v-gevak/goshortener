@@ -49,8 +49,8 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.URL == "" {
-		h.writeError(w, &apperrors.ValidationError{Field: "url", Message: "must not be empty"})
+	if err := request.Validate(); err != nil {
+		h.writeError(w, err)
 		return
 	}
 
@@ -64,6 +64,55 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.log.Error("encode response error", logger.Error(err))
+	}
+}
+
+func (h *Handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1048576))
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	var request []dto.ShortenRequestBatch
+
+	if err := json.Unmarshal(body, &request); err != nil {
+		h.writeError(w, &apperrors.ValidationError{Message: "invalid JSON request body"})
+		return
+	}
+
+	if err := dto.ValidateShortenRequestBatch(request); err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	originalURLs := make([]string, len(request))
+	for i, item := range request {
+		originalURLs[i] = item.OriginalURL
+	}
+
+	shortURLs, err := h.service.ShortenBatch(r.Context(), originalURLs)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	var response = make([]dto.ShortenResponseBatch, len(request))
+
+	for i, shortURL := range shortURLs {
+		response[i] = dto.ShortenResponseBatch{
+			CorrelationID: request[i].CorrelationID,
+			ShortURL:      shortURL,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		h.log.Error("encode response error", logger.Error(err))
 	}

@@ -58,6 +58,39 @@ func (p *inMemoryStorage) SetIfAbsent(_ context.Context, originalURL string) (*e
 	return &e, nil
 }
 
+func (p *inMemoryStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string) ([]*entity.URL, error) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
+	result := make([]*entity.URL, len(originalURLs))
+
+	for i, originalURL := range originalURLs {
+		exists := false
+		for _, urlEntity := range p.urls {
+			if urlEntity.Original == originalURL {
+				result[i] = &urlEntity
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			id := p.lastID + 1
+			key := base62.EncodeID(id)
+
+			e := entity.URL{
+				Original: originalURL,
+				Key:      key,
+			}
+			p.urls[key] = e
+			p.lastID = id
+			result[i] = &e
+		}
+	}
+
+	return result, nil
+}
+
 func (p *inMemoryStorage) Ping(context.Context) error {
 	return nil
 }

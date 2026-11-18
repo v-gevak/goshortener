@@ -9,6 +9,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -source=handler.go -destination=mocks/handler_mock.go -package=mocks -typed
 type URLService interface {
 	Shorten(ctx context.Context, originalURL string) (string, error)
+	ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error)
 	Expand(ctx context.Context, key string) (string, error)
 	Ping(ctx context.Context) error
 }

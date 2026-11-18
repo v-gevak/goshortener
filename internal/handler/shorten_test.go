@@ -149,3 +149,62 @@ func TestHandler_shortenJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestHandler_shortenBatch(t *testing.T) {
+	tests := []struct {
+		name                string
+		body                io.ReadCloser
+		originalURLs        []string
+		expectedStatusCode  int
+		expectedBody        string
+		expectedContentType string
+	}{
+		{
+			name:                "return error `missing correlation_id` in request body batch",
+			body:                io.NopCloser(strings.NewReader(`[{"a":"b"}]`)),
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedBody:        "batch item [0]: validation failed: correlation_id: must not be empty\n",
+			expectedContentType: "text/plain; charset=utf-8",
+		},
+		{
+			name:                "return error `invalid json` in request body batch",
+			body:                io.NopCloser(strings.NewReader(`{"correlation_id": "1"}`)),
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedBody:        "validation failed: invalid JSON request body\n",
+			expectedContentType: "text/plain; charset=utf-8",
+		},
+		{
+			name:                "return `201`",
+			body:                io.NopCloser(strings.NewReader(`[{"correlation_id":"1","original_url":"https://www.google.com"}]`)),
+			originalURLs:        []string{"https://www.google.com"},
+			expectedStatusCode:  http.StatusCreated,
+			expectedBody:        "[{\"correlation_id\":\"1\",\"short_url\":\"https://example.com/1\"}]\n",
+			expectedContentType: "application/json",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			svc := mocks.NewMockURLService(ctrl)
+			log := mocks.NewMockLogger(ctrl)
+			h := New(svc, log)
+
+			if tt.originalURLs != nil {
+				svc.EXPECT().
+					ShortenBatch(t.Context(), tt.originalURLs).
+					Return([]string{"https://example.com/1"}, nil)
+			}
+
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", tt.body)
+			w := httptest.NewRecorder()
+
+			h.ShortenBatch(w, request)
+
+			res := w.Result()
+
+			assert.Equal(t, tt.expectedStatusCode, res.StatusCode)
+			assert.Equal(t, tt.expectedBody, w.Body.String())
+			assert.Equal(t, tt.expectedContentType, res.Header.Get("Content-Type"))
+		})
+	}
+}

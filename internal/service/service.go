@@ -18,6 +18,7 @@ const maxURLLength = 2048
 //go:generate go run go.uber.org/mock/mockgen -source=service.go -destination=mocks/url_mock.go -package=mocks -typed
 type URLStore interface {
 	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
+	SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error)
 	Get(ctx context.Context, key string) (*entity.URL, error)
 	Ping(ctx context.Context) error
 }
@@ -40,25 +41,40 @@ func New(store URLStore, settings Settings) (*Service, error) {
 }
 
 func (s *Service) Shorten(ctx context.Context, originalURL string) (string, error) {
-	normalizedURL, err := urlutil.NormalizeHTTPURL(originalURL)
-	if err != nil {
-		return "", &apperrors.ValidationError{Field: "url", Message: err.Error()}
+	if err := validateOriginalURL(originalURL); err != nil {
+		return "", err
 	}
 
-	if len(normalizedURL) > maxURLLength {
-		return "", &apperrors.ValidationError{
-			Field:   "url",
-			Message: fmt.Sprintf("must not exceed %d bytes after normalization", maxURLLength),
-		}
-	}
-
-	storedURL, err := s.store.SetIfAbsent(ctx, normalizedURL)
+	storedURL, err := s.store.SetIfAbsent(ctx, originalURL)
 
 	if err != nil {
 		return "", err
 	}
 
 	return url.JoinPath(s.settings.BaseURL, storedURL.Key)
+}
+
+func (s *Service) ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error) {
+	for i, originalURL := range originalURLs {
+		if err := validateOriginalURL(originalURL); err != nil {
+			return nil, fmt.Errorf("batch item [%d]: %w", i, err)
+		}
+	}
+
+	storedURLs, err := s.store.SetBatchIfAbsent(ctx, originalURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	shortURLs := make([]string, len(storedURLs))
+	for i, storedURL := range storedURLs {
+		shortURLs[i], err = url.JoinPath(s.settings.BaseURL, storedURL.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return shortURLs, nil
 }
 
 func (s *Service) Expand(ctx context.Context, key string) (string, error) {
@@ -73,6 +89,21 @@ func (s *Service) Expand(ctx context.Context, key string) (string, error) {
 
 func (s *Service) Ping(ctx context.Context) error {
 	return s.store.Ping(ctx)
+}
+
+func validateOriginalURL(originalURL string) error {
+	if len(originalURL) > maxURLLength {
+		return &apperrors.ValidationError{
+			Field:   "url",
+			Message: fmt.Sprintf("must not exceed %d bytes", maxURLLength),
+		}
+	}
+
+	if _, err := urlutil.ValidateHTTPURL(originalURL); err != nil {
+		return &apperrors.ValidationError{Field: "url", Message: err.Error()}
+	}
+
+	return nil
 }
 
 func validateBaseURL(rawURL string) error {

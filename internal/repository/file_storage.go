@@ -2,10 +2,12 @@ package repository
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -52,9 +54,9 @@ type Item struct {
 	OriginalURL string `json:"original_url"`
 }
 
-func (p *fileStorage) restoreLastID() error {
+func (s *fileStorage) restoreLastID() error {
 	for {
-		line, err := p.fileReader.ReadBytes('\n')
+		line, err := s.fileReader.ReadBytes('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
@@ -66,7 +68,7 @@ func (p *fileStorage) restoreLastID() error {
 		if err := json.Unmarshal(line, &item); err != nil {
 			return err
 		}
-		p.lastID = item.ID
+		s.lastID = item.ID
 
 		if errors.Is(err, io.EOF) {
 			return nil
@@ -74,11 +76,11 @@ func (p *fileStorage) restoreLastID() error {
 	}
 }
 
-func (p *fileStorage) Get(_ context.Context, key string) (*entity.URL, error) {
-	p.mux.Lock()
-	defer p.mux.Unlock()
+func (s *fileStorage) Get(_ context.Context, key string) (*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	item, err := p.findItem(func(item Item) bool {
+	item, err := s.findItem(func(item Item) bool {
 		return item.ShortURL == key
 	})
 
@@ -89,14 +91,14 @@ func (p *fileStorage) Get(_ context.Context, key string) (*entity.URL, error) {
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
-func (p *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
-	if _, err := p.file.Seek(0, io.SeekStart); err != nil {
+func (s *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
+	if _, err := s.file.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
-	p.fileReader.Reset(p.file)
+	s.fileReader.Reset(s.file)
 
 	for {
-		line, err := p.fileReader.ReadBytes('\n')
+		line, err := s.fileReader.ReadBytes('\n')
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil, apperrors.ErrNotFound
@@ -117,11 +119,11 @@ func (p *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
 	}
 }
 
-func (p *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
-	p.mux.Lock()
-	defer p.mux.Unlock()
+func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	item, err := p.findItem(func(item Item) bool {
+	item, err := s.findItem(func(item Item) bool {
 		return item.OriginalURL == originalURL
 	})
 
@@ -133,7 +135,7 @@ func (p *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 		return nil, err
 	}
 
-	id := p.lastID + 1
+	id := s.lastID + 1
 
 	item = &Item{
 		ID:          id,
@@ -141,18 +143,96 @@ func (p *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 		OriginalURL: originalURL,
 	}
 
-	if err := json.MarshalEncode(p.fileWriter, item); err != nil {
+	if err := json.MarshalEncode(s.fileWriter, item); err != nil {
 		return nil, err
 	}
-	p.lastID = id
+	s.lastID = id
 
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
-func (p *fileStorage) Ping(context.Context) error {
+func (s *fileStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string) ([]*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	result := make([]*entity.URL, len(originalURLs))
+
+	if _, err := s.file.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	s.fileReader.Reset(s.file)
+	existing := make(map[string]Item)
+	for {
+		line, err := s.fileReader.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, err
+		}
+		if len(line) > 0 {
+			var item Item
+			if err := json.Unmarshal(line, &item); err != nil {
+				return nil, err
+			}
+			existing[item.OriginalURL] = item
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+	}
+
+	var buffer bytes.Buffer
+	encoder := jsontext.NewEncoder(&buffer)
+	nextID := s.lastID
+	for i, originalURL := range originalURLs {
+		item, exists := existing[originalURL]
+		if !exists {
+			nextID++
+			item = Item{ID: nextID, ShortURL: base62.EncodeID(nextID), OriginalURL: originalURL}
+			if err := json.MarshalEncode(encoder, item); err != nil {
+				return nil, err
+			}
+			existing[originalURL] = item
+		}
+		result[i] = &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}
+	}
+
+	if buffer.Len() == 0 {
+		return result, nil
+	}
+
+	data := buffer.Bytes()
+	if err := appendBatch(s.file, data); err != nil {
+		return nil, err
+	}
+
+	s.lastID = nextID
+	return result, nil
+}
+
+func appendBatch(file *os.File, data []byte) error {
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	fileSizeBeforeWrite := info.Size()
+	n, err := file.Write(data)
+	if err == nil && n != len(data) {
+		err = io.ErrShortWrite
+	}
+
+	if err != nil {
+		if rollbackErr := file.Truncate(fileSizeBeforeWrite); rollbackErr != nil {
+			return errors.Join(err, fmt.Errorf("rollback batch: %w", rollbackErr))
+		}
+		return err
+	}
+
 	return nil
 }
 
-func (p *fileStorage) Close() error {
-	return p.file.Close()
+func (s *fileStorage) Ping(context.Context) error {
+	return nil
+}
+
+func (s *fileStorage) Close() error {
+	return s.file.Close()
 }

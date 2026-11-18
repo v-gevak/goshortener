@@ -8,7 +8,6 @@ import (
 	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/entity"
 	"github.com/v-gevak/goshortener/internal/service/mocks"
-	"github.com/v-gevak/goshortener/internal/urlutil"
 	"go.uber.org/mock/gomock"
 )
 
@@ -41,10 +40,8 @@ func TestService_Shorten(t *testing.T) {
 
 			store := mocks.NewMockURLStore(gomock.NewController(t))
 			if !tt.wantErr {
-				normalizedURL, err := urlutil.NormalizeHTTPURL(tt.originalURL)
-				assert.NoError(t, err)
-				store.EXPECT().SetIfAbsent(t.Context(), normalizedURL).
-					Return(&entity.URL{Key: storedKey, Original: normalizedURL}, nil)
+				store.EXPECT().SetIfAbsent(t.Context(), tt.originalURL).
+					Return(&entity.URL{Key: storedKey, Original: tt.originalURL}, nil)
 			}
 
 			svc, err := New(store, Settings{BaseURL: baseURL})
@@ -140,5 +137,60 @@ func TestService_Expand(t *testing.T) {
 			assert.Equal(t, tt.originalURL, url)
 		})
 	}
+}
 
+func TestService_ShortenBatch(t *testing.T) {
+	tests := []struct {
+		name         string
+		originalURLs []string
+		wantErr      bool
+	}{
+		{
+			name:         "all URLs is valid",
+			originalURLs: []string{"https://www.google.com", "https://www.yandex.com"},
+			wantErr:      false,
+		},
+		{
+			name:         "invalid second URL prevents storage",
+			originalURLs: []string{"https://example.com", "invalid-url"},
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const baseURL = "http://example.com"
+
+			store := mocks.NewMockURLStore(gomock.NewController(t))
+			if !tt.wantErr {
+				store.EXPECT().
+					SetBatchIfAbsent(t.Context(), tt.originalURLs).
+					Return([]*entity.URL{
+						{Key: "1", Original: tt.originalURLs[0]},
+						{Key: "2", Original: tt.originalURLs[1]},
+					}, nil)
+			}
+
+			svc, err := New(store, Settings{BaseURL: baseURL})
+			require.NoError(t, err)
+
+			shortURLs, err := svc.ShortenBatch(t.Context(), tt.originalURLs)
+
+			if tt.wantErr {
+				var validationErr *apperrors.ValidationError
+				require.ErrorAs(t, err, &validationErr)
+				assert.Equal(t, "url", validationErr.Field)
+				assert.NotEmpty(t, validationErr.Message)
+				require.Empty(t, shortURLs)
+				assert.Contains(t, err.Error(), "batch item [1]")
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []string{
+				baseURL + "/" + "1",
+				baseURL + "/" + "2",
+			}, shortURLs)
+		})
+	}
 }

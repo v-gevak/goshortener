@@ -11,22 +11,21 @@ import (
 	"github.com/v-gevak/goshortener/internal/entity"
 )
 
+const findByKey = "SELECT short_key, original_url FROM links WHERE short_key = $1"
+const nextID = "SELECT nextval(pg_get_serial_sequence('links', 'id'))"
+const insertURL = "INSERT INTO links (id, short_key, original_url) VALUES ($1, $2, $3) ON CONFLICT (original_url) DO NOTHING RETURNING short_key, original_url"
+
+func expectInsert(mock sqlmock.Sqlmock, id int64, key, original string) {
+	mock.ExpectQuery(findByOriginal).WithArgs(original).
+		WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
+	mock.ExpectQuery(nextID).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id))
+	mock.ExpectQuery(insertURL).WithArgs(id, key, original).
+		WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(key, original))
+}
+
 func TestStorage(t *testing.T) {
-	const (
-		findByOriginal = "SELECT short_key, original_url FROM links WHERE original_url = $1"
-		findByKey      = "SELECT short_key, original_url FROM links WHERE short_key = $1"
-		nextID         = "SELECT nextval(pg_get_serial_sequence('links', 'id'))"
-		insertURL      = "INSERT INTO links (id, short_key, original_url) VALUES ($1, $2, $3) ON CONFLICT (original_url) DO NOTHING RETURNING short_key, original_url"
-		originalURL    = "https://example.com/page"
-	)
-	expectInsert := func(mock sqlmock.Sqlmock, id int64, key, original string) {
-		mock.ExpectQuery(findByOriginal).WithArgs(original).
-			WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
-		mock.ExpectQuery(nextID).
-			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id))
-		mock.ExpectQuery(insertURL).WithArgs(id, key, original).
-			WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(key, original))
-	}
+	const originalURL = "https://example.com/page"
 
 	tests := []struct {
 		name      string
@@ -129,6 +128,141 @@ func TestStorage(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					var store *Store
+					if kind == "db" {
+						db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+						require.NoError(t, err)
+						store = &Store{storage: &dbStorage{db: db}}
+						tt.setupMock(mock)
+						mock.ExpectClose()
+						t.Cleanup(func() {
+							assert.NoError(t, mock.ExpectationsWereMet())
+						})
+					} else {
+						settings := StoreSettings{}
+						if kind == "file" {
+							settings.FilePath = filepath.Join(t.TempDir(), "storage.jsonl")
+						}
+						var err error
+						store, err = New(settings)
+						require.NoError(t, err)
+					}
+
+					t.Cleanup(func() {
+						assert.NoError(t, store.Close())
+					})
+
+					tt.run(t, store)
+				})
+			}
+		})
+	}
+}
+
+func TestStorage_SetBatched(t *testing.T) {
+	const (
+		firstURL  = "https://google.com"
+		secondURL = "https://yandex.ru"
+		firstKey  = "10000"
+		secondKey = "10001"
+		thirdKey  = "10002"
+	)
+	expectGet := func(mock sqlmock.Sqlmock, key, original string) {
+		mock.ExpectQuery(findByKey).WithArgs(key).
+			WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(key, original))
+	}
+
+	tests := []struct {
+		name      string
+		setupMock func(sqlmock.Sqlmock)
+		run       func(*testing.T, *Store)
+	}{
+		{
+			name: "stores batch and returns urls",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				expectInsert(mock, firstShortID, firstKey, firstURL)
+				expectInsert(mock, firstShortID+1, secondKey, secondURL)
+				mock.ExpectCommit()
+				expectGet(mock, firstKey, firstURL)
+				expectGet(mock, secondKey, secondURL)
+			},
+			run: func(t *testing.T, store *Store) {
+				want := []*entity.URL{
+					{Key: firstKey, Original: firstURL},
+					{Key: secondKey, Original: secondURL},
+				}
+				stored, err := store.SetBatchIfAbsent(t.Context(), []string{firstURL, secondURL})
+				require.NoError(t, err)
+				assert.Equal(t, want, stored)
+
+				for _, expected := range want {
+					gotURL, err := store.Get(t.Context(), expected.Key)
+					require.NoError(t, err)
+					assert.Equal(t, expected, gotURL)
+				}
+			},
+		},
+		{
+			name: "returns existing entry when URL is already stored",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				expectInsert(mock, firstShortID, firstKey, firstURL)
+				mock.ExpectCommit()
+
+				mock.ExpectBegin()
+				mock.ExpectQuery(findByOriginal).WithArgs(firstURL).
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(firstKey, firstURL))
+				expectInsert(mock, firstShortID+1, secondKey, secondURL)
+				mock.ExpectCommit()
+
+				expectGet(mock, firstKey, firstURL)
+				expectGet(mock, secondKey, secondURL)
+				mock.ExpectQuery(findByKey).WithArgs(thirdKey).
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
+			},
+			run: func(t *testing.T, store *Store) {
+				firstEntries := []*entity.URL{
+					{Key: firstKey, Original: firstURL},
+				}
+
+				stored, err := store.SetBatchIfAbsent(t.Context(), []string{firstEntries[0].Original})
+				require.NoError(t, err)
+				assert.Equal(t, firstEntries, stored)
+
+				secondEntries := []*entity.URL{
+					{Key: secondKey, Original: secondURL},
+					{Key: firstKey, Original: firstURL},
+					{Key: secondKey, Original: secondURL},
+				}
+
+				stored, err = store.SetBatchIfAbsent(t.Context(), []string{
+					secondEntries[0].Original,
+					secondEntries[1].Original,
+					secondEntries[2].Original,
+				})
+				require.NoError(t, err)
+				assert.Equal(t, secondEntries, stored)
+
+				gotURL, err := store.Get(t.Context(), firstKey)
+				require.NoError(t, err)
+				assert.Equal(t, firstEntries[0], gotURL)
+
+				gotURL, err = store.Get(t.Context(), secondKey)
+				require.NoError(t, err)
+				assert.Equal(t, secondEntries[0], gotURL)
+
+				_, err = store.Get(t.Context(), thirdKey)
+				assert.ErrorIs(t, err, apperrors.ErrNotFound)
+			},
+		},
+	}
+
+	for _, kind := range []string{"in-memory", "file", "db"} {
+		t.Run(kind, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					var store *Store
+
 					if kind == "db" {
 						db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 						require.NoError(t, err)

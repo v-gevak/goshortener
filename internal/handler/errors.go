@@ -24,8 +24,8 @@ func errorResponse(err error) (int, string) {
 			http.StatusText(http.StatusRequestEntityTooLarge)
 	}
 
-	if validationErr, ok := errors.AsType[*apperrors.ValidationError](err); ok {
-		return http.StatusBadRequest, validationErr.Error()
+	if _, ok := errors.AsType[*apperrors.ValidationError](err); ok {
+		return http.StatusBadRequest, err.Error()
 	}
 
 	if errors.Is(err, apperrors.ErrNotFound) {
