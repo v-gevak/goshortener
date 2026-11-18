@@ -36,12 +36,12 @@ func TestStorage(t *testing.T) {
 		{
 			name: "stores and returns url",
 			setupMock: func(mock sqlmock.Sqlmock) {
-				expectInsert(mock, 1, "1", originalURL)
-				mock.ExpectQuery(findByKey).WithArgs("1").
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("1", originalURL))
+				expectInsert(mock, firstShortID, "10000", originalURL)
+				mock.ExpectQuery(findByKey).WithArgs("10000").
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10000", originalURL))
 			},
 			run: func(t *testing.T, store *Store) {
-				const key = "1"
+				const key = "10000"
 
 				want := entity.URL{Key: key, Original: originalURL}
 				stored, err := store.SetIfAbsent(t.Context(), originalURL)
@@ -68,17 +68,17 @@ func TestStorage(t *testing.T) {
 		{
 			name: "returns existing entry when URL is already stored",
 			setupMock: func(mock sqlmock.Sqlmock) {
-				expectInsert(mock, 1, "1", originalURL)
+				expectInsert(mock, firstShortID, "10000", originalURL)
 				mock.ExpectQuery(findByOriginal).WithArgs(originalURL).
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("1", originalURL))
-				mock.ExpectQuery(findByKey).WithArgs("1").
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("1", originalURL))
-				mock.ExpectQuery(findByKey).WithArgs("2").
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10000", originalURL))
+				mock.ExpectQuery(findByKey).WithArgs("10000").
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10000", originalURL))
+				mock.ExpectQuery(findByKey).WithArgs("10001").
 					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
 			},
 			run: func(t *testing.T, store *Store) {
-				const firstKey = "1"
-				const secondKey = "2"
+				const firstKey = "10000"
+				const secondKey = "10001"
 
 				want := entity.URL{Key: firstKey, Original: originalURL}
 				stored, err := store.SetIfAbsent(t.Context(), originalURL)
@@ -100,12 +100,12 @@ func TestStorage(t *testing.T) {
 		{
 			name: "different URLs have different keys and remain available",
 			setupMock: func(mock sqlmock.Sqlmock) {
-				expectInsert(mock, 1, "1", originalURL)
-				expectInsert(mock, 2, "2", "https://example.com/other")
-				mock.ExpectQuery(findByKey).WithArgs("1").
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("1", originalURL))
-				mock.ExpectQuery(findByKey).WithArgs("2").
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("2", "https://example.com/other"))
+				expectInsert(mock, firstShortID, "10000", originalURL)
+				expectInsert(mock, firstShortID+1, "10001", "https://example.com/other")
+				mock.ExpectQuery(findByKey).WithArgs("10000").
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10000", originalURL))
+				mock.ExpectQuery(findByKey).WithArgs("10001").
+					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10001", "https://example.com/other"))
 			},
 			run: func(t *testing.T, store *Store) {
 				first, err := store.SetIfAbsent(t.Context(), originalURL)

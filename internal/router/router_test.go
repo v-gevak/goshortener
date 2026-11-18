@@ -44,7 +44,7 @@ func TestRouter_ShortenAndExpand(t *testing.T) {
 	h.ServeHTTP(shortenResponse, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(originalURL)))
 	require.Equal(t, http.StatusCreated, shortenResponse.Code)
 	shortURL := shortenResponse.Body.String()
-	require.Regexp(t, `^http://example\.com/[a-zA-Z0-9]$`, shortURL)
+	require.Regexp(t, `^http://example\.com/[a-zA-Z0-9]{5}$`, shortURL)
 
 	expandResponse := httptest.NewRecorder()
 	h.ServeHTTP(expandResponse, httptest.NewRequest(http.MethodGet, shortURL, nil))

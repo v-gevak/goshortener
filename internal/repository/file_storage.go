@@ -41,6 +41,7 @@ func newFileStorage(filePath string) (*fileStorage, error) {
 		file.Close()
 		return nil, err
 	}
+	store.lastID = max(store.lastID, firstShortID-1)
 
 	return store, nil
 }

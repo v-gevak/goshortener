@@ -17,7 +17,8 @@ type inMemoryStorage struct {
 
 func newInMemoryStorage() *inMemoryStorage {
 	return &inMemoryStorage{
-		urls: make(map[string]entity.URL),
+		lastID: firstShortID - 1,
+		urls:   make(map[string]entity.URL),
 	}
 }
 

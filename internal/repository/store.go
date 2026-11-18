@@ -6,6 +6,8 @@ import (
 	"github.com/v-gevak/goshortener/internal/entity"
 )
 
+const firstShortID = 62 * 62 * 62 * 62
+
 type storage interface {
 	Get(ctx context.Context, key string) (*entity.URL, error)
 	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
