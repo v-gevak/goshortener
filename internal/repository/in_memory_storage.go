@@ -10,23 +10,25 @@ import (
 )
 
 type inMemoryStorage struct {
-	lastID int64
-	urls   map[string]entity.URL
-	mux    sync.Mutex
+	lastID        int64
+	urls          map[string]entity.URL
+	keyByOriginal map[string]string
+	mux           sync.Mutex
 }
 
 func newInMemoryStorage() *inMemoryStorage {
 	return &inMemoryStorage{
-		lastID: firstShortID - 1,
-		urls:   make(map[string]entity.URL),
+		lastID:        firstShortID - 1,
+		urls:          make(map[string]entity.URL),
+		keyByOriginal: make(map[string]string),
 	}
 }
 
-func (p *inMemoryStorage) Get(_ context.Context, key string) (*entity.URL, error) {
-	p.mux.Lock()
-	defer p.mux.Unlock()
+func (s *inMemoryStorage) Get(_ context.Context, key string) (*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	v, ok := p.urls[key]
+	v, ok := s.urls[key]
 
 	if !ok {
 		return nil, apperrors.ErrNotFound
@@ -35,66 +37,50 @@ func (p *inMemoryStorage) Get(_ context.Context, key string) (*entity.URL, error
 	return &v, nil
 }
 
-func (p *inMemoryStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
-	p.mux.Lock()
-	defer p.mux.Unlock()
+func (s *inMemoryStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	for _, urlEntity := range p.urls {
-		if urlEntity.Original == originalURL {
-			return &urlEntity, nil
-		}
+	return s.getOrCreateURL(originalURL), nil
+}
+
+func (s *inMemoryStorage) getOrCreateURL(originalURL string) *entity.URL {
+	if key, ok := s.keyByOriginal[originalURL]; ok {
+		stored := s.urls[key]
+		return &stored
 	}
 
-	id := p.lastID + 1
+	id := s.lastID + 1
 	key := base62.EncodeID(id)
 	e := entity.URL{
 		Original: originalURL,
 		Key:      key,
 	}
 
-	p.urls[key] = e
-	p.lastID = id
+	s.urls[key] = e
+	s.keyByOriginal[originalURL] = key
+	s.lastID = id
 
-	return &e, nil
+	return &e
 }
 
-func (p *inMemoryStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string) ([]*entity.URL, error) {
-	p.mux.Lock()
-	defer p.mux.Unlock()
+func (s *inMemoryStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string) ([]*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	result := make([]*entity.URL, len(originalURLs))
 
 	for i, originalURL := range originalURLs {
-		exists := false
-		for _, urlEntity := range p.urls {
-			if urlEntity.Original == originalURL {
-				result[i] = &urlEntity
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			id := p.lastID + 1
-			key := base62.EncodeID(id)
-
-			e := entity.URL{
-				Original: originalURL,
-				Key:      key,
-			}
-			p.urls[key] = e
-			p.lastID = id
-			result[i] = &e
-		}
+		result[i] = s.getOrCreateURL(originalURL)
 	}
 
 	return result, nil
 }
 
-func (p *inMemoryStorage) Ping(context.Context) error {
+func (s *inMemoryStorage) Ping(context.Context) error {
 	return nil
 }
 
-func (p *inMemoryStorage) Close() error {
+func (s *inMemoryStorage) Close() error {
 	return nil
 }

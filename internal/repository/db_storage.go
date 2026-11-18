@@ -56,7 +56,7 @@ func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
 }
 
 func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
-	return setOrGetUrl(ctx, s.db, originalURL)
+	return getOrCreateURL(ctx, s.db, originalURL)
 }
 
 func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error) {
@@ -73,7 +73,7 @@ func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string)
 
 	byURL := make(map[string]*entity.URL, len(orderedURLs))
 	for _, originalURL := range orderedURLs {
-		stored, err := setOrGetUrl(ctx, tx, originalURL)
+		stored, err := getOrCreateURL(ctx, tx, originalURL)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func (s *dbStorage) Close() error {
 	return s.db.Close()
 }
 
-func setOrGetUrl(ctx context.Context, conn queryRower, originalURL string) (*entity.URL, error) {
+func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*entity.URL, error) {
 	e := new(entity.URL)
 	err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
 
