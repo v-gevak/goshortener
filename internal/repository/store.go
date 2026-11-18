@@ -37,6 +37,13 @@ func New(settings StoreSettings) (*Store, error) {
 	return &Store{storage: repo}, err
 }
 
+func (s *Store) Bootstrap(ctx context.Context) error {
+	if db, ok := s.storage.(*dbStorage); ok {
+		return db.bootstrap(ctx)
+	}
+	return nil
+}
+
 func (s *Store) Get(ctx context.Context, key string) (*entity.URL, error) {
 	return s.storage.Get(ctx, key)
 }

@@ -55,6 +55,14 @@ func run() error {
 		}
 	}()
 
+	bootstrapCtx, cancelBootstrap := context.WithTimeout(context.Background(), 30*time.Second)
+	err = store.Bootstrap(bootstrapCtx)
+	cancelBootstrap()
+	if err != nil {
+		log.Error("cannot bootstrap store", logger.Error(err))
+		return err
+	}
+
 	svc, err := service.New(store, serviceSettings(cfg))
 	if err != nil {
 		log.Error("cannot create service", logger.Error(err))

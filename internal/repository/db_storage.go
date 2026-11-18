@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/v-gevak/goshortener/internal/apperrors"
@@ -23,15 +22,11 @@ func newDBStorage(dsn string) (*dbStorage, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := migrations.ApplyAll(ctx, db); err != nil {
-		db.Close()
-		return nil, err
-	}
-
 	return &dbStorage{db: db}, nil
+}
+
+func (s *dbStorage) bootstrap(ctx context.Context) error {
+	return migrations.ApplyAll(ctx, s.db)
 }
 
 func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
