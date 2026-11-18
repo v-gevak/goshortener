@@ -54,11 +54,11 @@ func TestHandler_shorten(t *testing.T) {
 			svc := mocks.NewMockURLService(ctrl)
 			log := mocks.NewMockLogger(ctrl)
 			if tt.originalURL != "" {
-				svc.EXPECT().Shorten(tt.originalURL).Return(tt.shortURL, nil)
+				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, nil)
 			}
 			h := New(svc, log)
 
-			request := httptest.NewRequest(http.MethodPost, "/", tt.body)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()
 
 			h.Shorten(w, request)
@@ -129,14 +129,14 @@ func TestHandler_shortenJSON(t *testing.T) {
 			svc := mocks.NewMockURLService(ctrl)
 			log := mocks.NewMockLogger(ctrl)
 			if tt.originalURL != "" {
-				svc.EXPECT().Shorten(tt.originalURL).Return(tt.shortURL, tt.serviceErr)
+				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, tt.serviceErr)
 			}
 			if tt.serviceErr != nil {
 				log.EXPECT().Error("request failed", logger.Error(tt.serviceErr))
 			}
 			h := New(svc, log)
 
-			request := httptest.NewRequest(http.MethodPost, "/", tt.body)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()
 
 			h.ShortenJSON(w, request)

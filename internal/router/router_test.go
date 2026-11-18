@@ -95,10 +95,10 @@ func TestRouter_Routes(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			svc := handlermocks.NewMockURLService(ctrl)
 			if tt.wantShortenCall {
-				svc.EXPECT().Shorten(tt.body).Return("http://example.com/ABCD", nil)
+				svc.EXPECT().Shorten(gomock.Any(), tt.body).Return("http://example.com/ABCD", nil)
 			}
 			if tt.wantExpandCall {
-				svc.EXPECT().Expand(strings.TrimPrefix(tt.path, "/")).Return("", apperrors.ErrNotFound)
+				svc.EXPECT().Expand(gomock.Any(), strings.TrimPrefix(tt.path, "/")).Return("", apperrors.ErrNotFound)
 			}
 
 			log := mocks.NewMockLogger(ctrl)
@@ -248,7 +248,7 @@ func TestRouter_Compression(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			svc := handlermocks.NewMockURLService(ctrl)
 			if tt.expectedStatus == http.StatusCreated {
-				svc.EXPECT().Shorten(originalURL).Return(shortURL, nil)
+				svc.EXPECT().Shorten(gomock.Any(), originalURL).Return(shortURL, nil)
 			}
 			log := mocks.NewMockLogger(ctrl)
 			log.EXPECT().Info("HTTP request completed",

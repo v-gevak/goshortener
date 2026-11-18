@@ -43,14 +43,14 @@ func TestService_Shorten(t *testing.T) {
 			if !tt.wantErr {
 				normalizedURL, err := urlutil.NormalizeHTTPURL(tt.originalURL)
 				assert.NoError(t, err)
-				store.EXPECT().SetIfAbsent(normalizedURL).
+				store.EXPECT().SetIfAbsent(t.Context(), normalizedURL).
 					Return(&entity.URL{Key: storedKey, Original: normalizedURL}, nil)
 			}
 
 			svc, err := New(store, Settings{BaseURL: baseURL})
 			require.NoError(t, err)
 
-			shortURL, err := svc.Shorten(tt.originalURL)
+			shortURL, err := svc.Shorten(t.Context(), tt.originalURL)
 
 			if tt.wantErr {
 				var validationErr *apperrors.ValidationError
@@ -124,12 +124,12 @@ func TestService_Expand(t *testing.T) {
 			if tt.wantErr == nil {
 				stored = &entity.URL{Key: tt.key, Original: tt.originalURL}
 			}
-			store.EXPECT().Get(tt.key).Return(stored, tt.wantErr)
+			store.EXPECT().Get(t.Context(), tt.key).Return(stored, tt.wantErr)
 
 			svc, err := New(store, Settings{BaseURL: "http://example.com"})
 			require.NoError(t, err)
 
-			url, err := svc.Expand(tt.key)
+			url, err := svc.Expand(t.Context(), tt.key)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)

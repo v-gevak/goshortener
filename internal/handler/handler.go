@@ -1,14 +1,16 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/v-gevak/goshortener/internal/logger"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -source=handler.go -destination=mocks/handler_mock.go -package=mocks -typed
 type URLService interface {
-	Shorten(originalURL string) (string, error)
-	Expand(key string) (string, error)
-	Ping() error
+	Shorten(ctx context.Context, originalURL string) (string, error)
+	Expand(ctx context.Context, key string) (string, error)
+	Ping(ctx context.Context) error
 }
 
 type Logger interface {

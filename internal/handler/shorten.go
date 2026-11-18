@@ -22,7 +22,7 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.service.Shorten(string(body))
+	shortURL, err := h.service.Shorten(r.Context(), string(body))
 	if err != nil {
 		h.writeError(w, err)
 		return
@@ -54,7 +54,7 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.service.Shorten(request.URL)
+	shortURL, err := h.service.Shorten(r.Context(), request.URL)
 	if err != nil {
 		h.writeError(w, err)
 		return

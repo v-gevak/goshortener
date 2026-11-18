@@ -1,13 +1,15 @@
 package repository
 
 import (
+	"context"
+
 	"github.com/v-gevak/goshortener/internal/entity"
 )
 
 type storage interface {
-	Get(key string) (*entity.URL, error)
-	SetIfAbsent(originalURL string) (*entity.URL, error)
-	Ping() error
+	Get(ctx context.Context, key string) (*entity.URL, error)
+	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
+	Ping(ctx context.Context) error
 	Close() error
 }
 
@@ -35,16 +37,16 @@ func New(settings StoreSettings) (*Store, error) {
 	return &Store{storage: repo}, err
 }
 
-func (s *Store) Get(key string) (*entity.URL, error) {
-	return s.storage.Get(key)
+func (s *Store) Get(ctx context.Context, key string) (*entity.URL, error) {
+	return s.storage.Get(ctx, key)
 }
 
-func (s *Store) SetIfAbsent(originalURL string) (*entity.URL, error) {
-	return s.storage.SetIfAbsent(originalURL)
+func (s *Store) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
+	return s.storage.SetIfAbsent(ctx, originalURL)
 }
 
-func (s *Store) Ping() error {
-	return s.storage.Ping()
+func (s *Store) Ping(ctx context.Context) error {
+	return s.storage.Ping(ctx)
 }
 
 func (s *Store) Close() error {

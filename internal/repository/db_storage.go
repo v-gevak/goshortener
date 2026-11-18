@@ -34,8 +34,8 @@ func newDBStorage(dsn string) (*dbStorage, error) {
 	return &dbStorage{db: db}, nil
 }
 
-func (s *dbStorage) Get(key string) (*entity.URL, error) {
-	row := s.db.QueryRow(`SELECT short_key, original_url FROM links WHERE short_key = $1`, key)
+func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT short_key, original_url FROM links WHERE short_key = $1`, key)
 
 	e := new(entity.URL)
 
@@ -51,7 +51,7 @@ func (s *dbStorage) Get(key string) (*entity.URL, error) {
 	return e, nil
 }
 
-func (s *dbStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
+func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
 	const findByOriginal = `
         SELECT short_key, original_url
         FROM links
@@ -59,7 +59,7 @@ func (s *dbStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
     `
 
 	e := new(entity.URL)
-	err := s.db.QueryRow(findByOriginal, originalURL).Scan(&e.Key, &e.Original)
+	err := s.db.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
 
 	if err == nil {
 		return e, nil
@@ -70,15 +70,16 @@ func (s *dbStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	}
 
 	var id int64
-	err = s.db.QueryRow(`SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&id)
+	err = s.db.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
 
 	shortKey := base62.EncodeID(id)
 
-	err = s.db.QueryRow(
-		`INSERT INTO links (id, short_key, original_url) 
+	err = s.db.QueryRowContext(
+		ctx,
+		`INSERT INTO links (id, short_key, original_url)
 				VALUES ($1, $2, $3)
 				ON CONFLICT (original_url) DO NOTHING
 				RETURNING short_key, original_url
@@ -87,7 +88,7 @@ func (s *dbStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	).Scan(&e.Key, &e.Original)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		err = s.db.QueryRow(findByOriginal, originalURL).Scan(&e.Key, &e.Original)
+		err = s.db.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
 	}
 
 	if err != nil {
@@ -97,8 +98,8 @@ func (s *dbStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	return e, nil
 }
 
-func (s *dbStorage) Ping() error {
-	return s.db.PingContext(context.Background())
+func (s *dbStorage) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
 }
 
 func (s *dbStorage) Close() error {

@@ -40,11 +40,11 @@ func TestHandler_expand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			svc := mocks.NewMockURLService(ctrl)
-			svc.EXPECT().Expand(tt.key).Return(tt.originalURL, tt.serviceErr)
+			svc.EXPECT().Expand(t.Context(), tt.key).Return(tt.originalURL, tt.serviceErr)
 			log := mocks.NewMockLogger(ctrl)
 			h := New(svc, log)
 
-			request := httptest.NewRequest(http.MethodGet, "/"+tt.key, nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/"+tt.key, nil)
 			request.SetPathValue("key", tt.key)
 
 			w := httptest.NewRecorder()

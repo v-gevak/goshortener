@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bufio"
+	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -72,7 +73,7 @@ func (p *fileStorage) restoreLastID() error {
 	}
 }
 
-func (p *fileStorage) Get(key string) (*entity.URL, error) {
+func (p *fileStorage) Get(_ context.Context, key string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -115,7 +116,7 @@ func (p *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
 	}
 }
 
-func (p *fileStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
+func (p *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -147,7 +148,7 @@ func (p *fileStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
 }
 
-func (p *fileStorage) Ping() error {
+func (p *fileStorage) Ping(context.Context) error {
 	return nil
 }
 

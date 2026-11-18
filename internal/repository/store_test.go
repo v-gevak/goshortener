@@ -44,11 +44,11 @@ func TestStorage(t *testing.T) {
 				const key = "1"
 
 				want := entity.URL{Key: key, Original: originalURL}
-				stored, err := store.SetIfAbsent(originalURL)
+				stored, err := store.SetIfAbsent(t.Context(), originalURL)
 				require.NoError(t, err)
 				assert.Equal(t, &want, stored)
 
-				gotURL, err := store.Get(key)
+				gotURL, err := store.Get(t.Context(), key)
 				require.NoError(t, err)
 				assert.Equal(t, &want, gotURL)
 			},
@@ -60,7 +60,7 @@ func TestStorage(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
 			},
 			run: func(t *testing.T, store *Store) {
-				gotURL, err := store.Get("missing")
+				gotURL, err := store.Get(t.Context(), "missing")
 				assert.ErrorIs(t, err, apperrors.ErrNotFound)
 				assert.Empty(t, gotURL)
 			},
@@ -81,19 +81,19 @@ func TestStorage(t *testing.T) {
 				const secondKey = "2"
 
 				want := entity.URL{Key: firstKey, Original: originalURL}
-				stored, err := store.SetIfAbsent(originalURL)
+				stored, err := store.SetIfAbsent(t.Context(), originalURL)
 				require.NoError(t, err)
 				assert.Equal(t, &want, stored)
 
-				stored, err = store.SetIfAbsent(originalURL)
+				stored, err = store.SetIfAbsent(t.Context(), originalURL)
 				require.NoError(t, err)
 				assert.Equal(t, &want, stored)
 
-				gotURL, err := store.Get(firstKey)
+				gotURL, err := store.Get(t.Context(), firstKey)
 				require.NoError(t, err)
 				assert.Equal(t, &want, gotURL)
 
-				_, err = store.Get(secondKey)
+				_, err = store.Get(t.Context(), secondKey)
 				assert.ErrorIs(t, err, apperrors.ErrNotFound)
 			},
 		},
@@ -108,16 +108,16 @@ func TestStorage(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("2", "https://example.com/other"))
 			},
 			run: func(t *testing.T, store *Store) {
-				first, err := store.SetIfAbsent(originalURL)
+				first, err := store.SetIfAbsent(t.Context(), originalURL)
 				require.NoError(t, err)
-				second, err := store.SetIfAbsent("https://example.com/other")
+				second, err := store.SetIfAbsent(t.Context(), "https://example.com/other")
 				require.NoError(t, err)
 				assert.NotEqual(t, first.Key, second.Key)
 
-				got, err := store.Get(first.Key)
+				got, err := store.Get(t.Context(), first.Key)
 				require.NoError(t, err)
 				assert.Equal(t, first, got)
-				got, err = store.Get(second.Key)
+				got, err = store.Get(t.Context(), second.Key)
 				require.NoError(t, err)
 				assert.Equal(t, second, got)
 			},

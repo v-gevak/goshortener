@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sync"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
@@ -20,7 +21,7 @@ func newInMemoryStorage() *inMemoryStorage {
 	}
 }
 
-func (p *inMemoryStorage) Get(key string) (*entity.URL, error) {
+func (p *inMemoryStorage) Get(_ context.Context, key string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -33,7 +34,7 @@ func (p *inMemoryStorage) Get(key string) (*entity.URL, error) {
 	return &v, nil
 }
 
-func (p *inMemoryStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
+func (p *inMemoryStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
@@ -56,7 +57,7 @@ func (p *inMemoryStorage) SetIfAbsent(originalURL string) (*entity.URL, error) {
 	return &e, nil
 }
 
-func (p *inMemoryStorage) Ping() error {
+func (p *inMemoryStorage) Ping(context.Context) error {
 	return nil
 }
 

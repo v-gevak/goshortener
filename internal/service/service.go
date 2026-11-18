@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -16,9 +17,9 @@ const maxURLLength = 2048
 
 //go:generate go run go.uber.org/mock/mockgen -source=service.go -destination=mocks/url_mock.go -package=mocks -typed
 type URLStore interface {
-	SetIfAbsent(originalURL string) (*entity.URL, error)
-	Get(key string) (*entity.URL, error)
-	Ping() error
+	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
+	Get(ctx context.Context, key string) (*entity.URL, error)
+	Ping(ctx context.Context) error
 }
 
 type Settings struct {
@@ -38,7 +39,7 @@ func New(store URLStore, settings Settings) (*Service, error) {
 	return &Service{store: store, settings: settings}, nil
 }
 
-func (s *Service) Shorten(originalURL string) (string, error) {
+func (s *Service) Shorten(ctx context.Context, originalURL string) (string, error) {
 	normalizedURL, err := urlutil.NormalizeHTTPURL(originalURL)
 	if err != nil {
 		return "", &apperrors.ValidationError{Field: "url", Message: err.Error()}
@@ -51,7 +52,7 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 		}
 	}
 
-	storedURL, err := s.store.SetIfAbsent(normalizedURL)
+	storedURL, err := s.store.SetIfAbsent(ctx, normalizedURL)
 
 	if err != nil {
 		return "", err
@@ -60,8 +61,8 @@ func (s *Service) Shorten(originalURL string) (string, error) {
 	return url.JoinPath(s.settings.BaseURL, storedURL.Key)
 }
 
-func (s *Service) Expand(key string) (string, error) {
-	storedEntity, err := s.store.Get(key)
+func (s *Service) Expand(ctx context.Context, key string) (string, error) {
+	storedEntity, err := s.store.Get(ctx, key)
 
 	if err != nil {
 		return "", err
@@ -70,8 +71,8 @@ func (s *Service) Expand(key string) (string, error) {
 	return storedEntity.Original, nil
 }
 
-func (s *Service) Ping() error {
-	return s.store.Ping()
+func (s *Service) Ping(ctx context.Context) error {
+	return s.store.Ping(ctx)
 }
 
 func validateBaseURL(rawURL string) error {
