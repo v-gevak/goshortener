@@ -39,12 +39,10 @@ func NormalizeHTTPURL(rawURL string) (string, error) {
 		u.Host = strings.TrimSuffix(u.Host, ":"+port)
 	}
 
-	escapedPath := strings.TrimRight(u.EscapedPath(), "/")
-	u.Path, err = url.PathUnescape(escapedPath)
-	if err != nil {
-		return "", err
+	if u.EscapedPath() == "/" {
+		u.Path = ""
+		u.RawPath = ""
 	}
-	u.RawPath = escapedPath
 
 	return u.String(), nil
 }

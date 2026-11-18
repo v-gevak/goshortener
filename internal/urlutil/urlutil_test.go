@@ -15,14 +15,16 @@ func TestNormalizeHTTPURL(t *testing.T) {
 	}{
 		{name: "no path", url: "https://example.com", want: "https://example.com"},
 		{name: "root slash", url: "https://example.com/", want: "https://example.com"},
-		{name: "path slash", url: "https://example.com/page/", want: "https://example.com/page"},
-		{name: "multiple trailing slashes", url: "https://example.com/page///", want: "https://example.com/page"},
-		{name: "inner slashes preserved", url: "https://example.com/a//b/", want: "https://example.com/a//b"},
-		{name: "query and fragment preserved", url: "HTTPS://EXAMPLE.COM:443/page/?next=/x/#part/", want: "https://example.com/page?next=/x/#part/"},
+		{name: "root slash with query and fragment", url: "HTTPS://EXAMPLE.COM:443/?next=/x/#part/", want: "https://example.com?next=/x/#part/"},
+		{name: "path without trailing slash", url: "https://example.com/page", want: "https://example.com/page"},
+		{name: "path with trailing slash", url: "https://example.com/page/", want: "https://example.com/page/"},
+		{name: "multiple trailing slashes", url: "https://example.com/page///", want: "https://example.com/page///"},
+		{name: "inner slashes preserved", url: "https://example.com/a//b/", want: "https://example.com/a//b/"},
+		{name: "encoded root slash preserved", url: "https://example.com/%2F", want: "https://example.com/%2F"},
 		{name: "encoded trailing slash preserved", url: "https://example.com/page%2F", want: "https://example.com/page%2F"},
-		{name: "encoded inner slash preserved", url: "https://example.com/a%2Fb/", want: "https://example.com/a%2Fb"},
-		{name: "literal slash after encoded slash", url: "https://example.com/page%2F/", want: "https://example.com/page%2F"},
-		{name: "unicode path", url: "https://example.com/я/", want: "https://example.com/%D1%8F"},
+		{name: "encoded inner slash preserved", url: "https://example.com/a%2Fb/", want: "https://example.com/a%2Fb/"},
+		{name: "literal slash after encoded slash", url: "https://example.com/page%2F/", want: "https://example.com/page%2F/"},
+		{name: "unicode path", url: "https://example.com/я/", want: "https://example.com/%D1%8F/"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
