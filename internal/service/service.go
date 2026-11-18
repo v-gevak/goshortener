@@ -41,11 +41,12 @@ func New(store URLStore, settings Settings) (*Service, error) {
 }
 
 func (s *Service) Shorten(ctx context.Context, originalURL string) (string, error) {
-	if err := validateOriginalURL(originalURL); err != nil {
+	normalizedURL, err := normalizeOriginalURL(originalURL)
+	if err != nil {
 		return "", err
 	}
 
-	storedURL, err := s.store.SetIfAbsent(ctx, originalURL)
+	storedURL, err := s.store.SetIfAbsent(ctx, normalizedURL)
 
 	if err != nil {
 		return "", err
@@ -55,13 +56,16 @@ func (s *Service) Shorten(ctx context.Context, originalURL string) (string, erro
 }
 
 func (s *Service) ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error) {
+	normalizedURLs := make([]string, len(originalURLs))
 	for i, originalURL := range originalURLs {
-		if err := validateOriginalURL(originalURL); err != nil {
+		normalizedURL, err := normalizeOriginalURL(originalURL)
+		if err != nil {
 			return nil, fmt.Errorf("batch item [%d]: %w", i, err)
 		}
+		normalizedURLs[i] = normalizedURL
 	}
 
-	storedURLs, err := s.store.SetBatchIfAbsent(ctx, originalURLs)
+	storedURLs, err := s.store.SetBatchIfAbsent(ctx, normalizedURLs)
 	if err != nil {
 		return nil, err
 	}
@@ -91,19 +95,20 @@ func (s *Service) Ping(ctx context.Context) error {
 	return s.store.Ping(ctx)
 }
 
-func validateOriginalURL(originalURL string) error {
-	if len(originalURL) > maxURLLength {
-		return &apperrors.ValidationError{
+func normalizeOriginalURL(originalURL string) (string, error) {
+	normalizedURL, err := urlutil.NormalizeHTTPURL(originalURL)
+	if err != nil {
+		return "", &apperrors.ValidationError{Field: "url", Message: err.Error()}
+	}
+
+	if len(normalizedURL) > maxURLLength {
+		return "", &apperrors.ValidationError{
 			Field:   "url",
-			Message: fmt.Sprintf("must not exceed %d bytes", maxURLLength),
+			Message: fmt.Sprintf("must not exceed %d bytes after normalization", maxURLLength),
 		}
 	}
 
-	if _, err := urlutil.ValidateHTTPURL(originalURL); err != nil {
-		return &apperrors.ValidationError{Field: "url", Message: err.Error()}
-	}
-
-	return nil
+	return normalizedURL, nil
 }
 
 func validateBaseURL(rawURL string) error {

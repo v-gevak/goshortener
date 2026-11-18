@@ -3,6 +3,7 @@ package urlutil
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 func ValidateHTTPURL(rawURL string) (*url.URL, error) {
@@ -20,4 +21,28 @@ func ValidateHTTPURL(rawURL string) (*url.URL, error) {
 	}
 
 	return u, nil
+}
+
+func NormalizeHTTPURL(rawURL string) (string, error) {
+	u, err := ValidateHTTPURL(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.HasPrefix(u.Host, "[") {
+		u.Host = strings.ToLower(u.Host)
+	}
+
+	port := u.Port()
+	if (u.Scheme == "http" && port == "80") ||
+		(u.Scheme == "https" && port == "443") {
+		u.Host = strings.TrimSuffix(u.Host, ":"+port)
+	}
+
+	if u.EscapedPath() == "/" {
+		u.Path = ""
+		u.RawPath = ""
+	}
+
+	return u.String(), nil
 }

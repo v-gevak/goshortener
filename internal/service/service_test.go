@@ -140,15 +140,20 @@ func TestService_Expand(t *testing.T) {
 }
 
 func TestService_ShortenBatch(t *testing.T) {
+	const (
+		firstURL  = "https://example.com"
+		secondURL = "https://example.org/page/"
+	)
 	tests := []struct {
-		name         string
-		originalURLs []string
-		wantErr      bool
+		name           string
+		originalURLs   []string
+		normalizedURLs []string
+		wantErr        bool
 	}{
 		{
-			name:         "all URLs is valid",
-			originalURLs: []string{"https://www.google.com", "https://www.yandex.com"},
-			wantErr:      false,
+			name:           "normalizes equivalent URLs without changing the order",
+			originalURLs:   []string{"HTTPS://EXAMPLE.COM:443/", secondURL, firstURL},
+			normalizedURLs: []string{firstURL, secondURL, firstURL},
 		},
 		{
 			name:         "invalid second URL prevents storage",
@@ -164,10 +169,11 @@ func TestService_ShortenBatch(t *testing.T) {
 			store := mocks.NewMockURLStore(gomock.NewController(t))
 			if !tt.wantErr {
 				store.EXPECT().
-					SetBatchIfAbsent(t.Context(), tt.originalURLs).
+					SetBatchIfAbsent(t.Context(), tt.normalizedURLs).
 					Return([]*entity.URL{
-						{Key: "1", Original: tt.originalURLs[0]},
-						{Key: "2", Original: tt.originalURLs[1]},
+						{Key: "1", Original: firstURL},
+						{Key: "2", Original: secondURL},
+						{Key: "1", Original: firstURL},
 					}, nil)
 			}
 
@@ -188,8 +194,9 @@ func TestService_ShortenBatch(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, []string{
-				baseURL + "/" + "1",
-				baseURL + "/" + "2",
+				baseURL + "/1",
+				baseURL + "/2",
+				baseURL + "/1",
 			}, shortURLs)
 		})
 	}
