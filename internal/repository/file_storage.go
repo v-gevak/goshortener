@@ -125,7 +125,7 @@ func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 	})
 
 	if err == nil {
-		return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
+		return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, apperrors.ErrConflict
 	}
 
 	if !errors.Is(err, apperrors.ErrNotFound) {
