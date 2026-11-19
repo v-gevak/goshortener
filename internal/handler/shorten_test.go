@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/v-gevak/goshortener/internal/apperrors"
 	"github.com/v-gevak/goshortener/internal/handler/mocks"
 	"github.com/v-gevak/goshortener/internal/logger"
 	"go.uber.org/mock/gomock"
@@ -20,6 +21,7 @@ func TestHandler_shorten(t *testing.T) {
 		body                io.ReadCloser
 		originalURL         string
 		shortURL            string
+		serviceErr          error
 		expectedStatusCode  int
 		expectedBody        string
 		expectedContentType string
@@ -41,6 +43,16 @@ func TestHandler_shorten(t *testing.T) {
 			expectedContentType: "text/plain; charset=utf-8",
 		},
 		{
+			name:                "return existing short URL with 409",
+			body:                io.NopCloser(strings.NewReader(`https://www.google.com`)),
+			originalURL:         "https://www.google.com",
+			shortURL:            "http://example.com/ABCD",
+			serviceErr:          apperrors.ErrConflict,
+			expectedStatusCode:  http.StatusConflict,
+			expectedBody:        "http://example.com/ABCD",
+			expectedContentType: "text/plain; charset=utf-8",
+		},
+		{
 			name:                "should return error `413`",
 			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 16*1024+1))),
 			expectedStatusCode:  http.StatusRequestEntityTooLarge,
@@ -54,7 +66,7 @@ func TestHandler_shorten(t *testing.T) {
 			svc := mocks.NewMockURLService(ctrl)
 			log := mocks.NewMockLogger(ctrl)
 			if tt.originalURL != "" {
-				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, nil)
+				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, tt.serviceErr)
 			}
 			h := New(svc, log)
 
@@ -107,6 +119,16 @@ func TestHandler_shortenJSON(t *testing.T) {
 			expectedContentType: "application/json",
 		},
 		{
+			name:                "return existing short URL with 409",
+			body:                io.NopCloser(strings.NewReader(`{"url":"https://www.google.com"}`)),
+			originalURL:         "https://www.google.com",
+			shortURL:            "http://example.com/ABCD",
+			serviceErr:          apperrors.ErrConflict,
+			expectedStatusCode:  http.StatusConflict,
+			expectedBody:        "{\"result\":\"http://example.com/ABCD\"}\n",
+			expectedContentType: "application/json",
+		},
+		{
 			name:                "return error `413`",
 			body:                io.NopCloser(strings.NewReader(strings.Repeat("a", 16*1024+1))),
 			expectedStatusCode:  http.StatusRequestEntityTooLarge,
@@ -131,12 +153,12 @@ func TestHandler_shortenJSON(t *testing.T) {
 			if tt.originalURL != "" {
 				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, tt.serviceErr)
 			}
-			if tt.serviceErr != nil {
+			if tt.expectedStatusCode == http.StatusInternalServerError {
 				log.EXPECT().Error("request failed", logger.Error(tt.serviceErr))
 			}
 			h := New(svc, log)
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", tt.body)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/shorten", tt.body)
 			w := httptest.NewRecorder()
 
 			h.ShortenJSON(w, request)

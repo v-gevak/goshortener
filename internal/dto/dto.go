@@ -13,7 +13,7 @@ type ShortenRequest struct {
 
 func (r ShortenRequest) Validate() error {
 	if r.URL == "" {
-		return &apperrors.ValidationError{Field: "url", Message: "must not be empty"}
+		return apperrors.NewValidationError("url", "must not be empty")
 	}
 
 	return nil
@@ -26,10 +26,7 @@ type ShortenRequestBatch struct {
 
 func (r ShortenRequestBatch) Validate() error {
 	if strings.TrimSpace(r.CorrelationID) == "" {
-		return &apperrors.ValidationError{
-			Field:   "correlation_id",
-			Message: "must not be empty",
-		}
+		return apperrors.NewValidationError("correlation_id", "must not be empty")
 	}
 
 	return nil
@@ -37,9 +34,7 @@ func (r ShortenRequestBatch) Validate() error {
 
 func ValidateShortenRequestBatch(items []ShortenRequestBatch) error {
 	if len(items) == 0 {
-		return &apperrors.ValidationError{
-			Message: "batch must not be empty",
-		}
+		return apperrors.NewValidationError("", "batch must not be empty")
 	}
 
 	for i, item := range items {

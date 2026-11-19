@@ -85,7 +85,11 @@ func TestStorage(t *testing.T) {
 				assert.Equal(t, &want, stored)
 
 				stored, err = store.SetIfAbsent(t.Context(), originalURL)
-				require.NoError(t, err)
+				if _, isDB := store.storage.(*dbStorage); isDB {
+					require.NoError(t, err)
+				} else {
+					require.ErrorIs(t, err, apperrors.ErrConflict)
+				}
 				assert.Equal(t, &want, stored)
 
 				gotURL, err := store.Get(t.Context(), firstKey)

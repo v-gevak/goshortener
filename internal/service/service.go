@@ -46,13 +46,17 @@ func (s *Service) Shorten(ctx context.Context, originalURL string) (string, erro
 		return "", err
 	}
 
-	storedURL, err := s.store.SetIfAbsent(ctx, normalizedURL)
+	storedURL, storeErr := s.store.SetIfAbsent(ctx, normalizedURL)
+	if storeErr != nil && !errors.Is(storeErr, apperrors.ErrConflict) {
+		return "", storeErr
+	}
 
+	shortURL, err := url.JoinPath(s.settings.BaseURL, storedURL.Key)
 	if err != nil {
 		return "", err
 	}
 
-	return url.JoinPath(s.settings.BaseURL, storedURL.Key)
+	return shortURL, storeErr
 }
 
 func (s *Service) ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error) {
@@ -98,14 +102,11 @@ func (s *Service) Ping(ctx context.Context) error {
 func normalizeOriginalURL(originalURL string) (string, error) {
 	normalizedURL, err := urlutil.NormalizeHTTPURL(originalURL)
 	if err != nil {
-		return "", &apperrors.ValidationError{Field: "url", Message: err.Error()}
+		return "", apperrors.NewValidationError("url", err.Error())
 	}
 
 	if len(normalizedURL) > maxURLLength {
-		return "", &apperrors.ValidationError{
-			Field:   "url",
-			Message: fmt.Sprintf("must not exceed %d bytes after normalization", maxURLLength),
-		}
+		return "", apperrors.NewValidationError("url", fmt.Sprintf("must not exceed %d bytes after normalization", maxURLLength))
 	}
 
 	return normalizedURL, nil

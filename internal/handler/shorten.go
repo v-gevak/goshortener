@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -18,18 +19,22 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(body) == 0 {
-		h.writeError(w, &apperrors.ValidationError{Message: "empty body"})
+		h.writeError(w, apperrors.NewValidationError("", "empty body"))
 		return
 	}
 
 	shortURL, err := h.service.Shorten(r.Context(), string(body))
-	if err != nil {
+	status := http.StatusCreated
+	switch {
+	case errors.Is(err, apperrors.ErrConflict):
+		status = http.StatusConflict
+	case err != nil:
 		h.writeError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(status)
 	if _, err := w.Write([]byte(shortURL)); err != nil {
 		h.log.Error("write response error", logger.Error(err))
 	}
@@ -45,7 +50,7 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 	var request dto.ShortenRequest
 
 	if err := json.Unmarshal(body, &request); err != nil {
-		h.writeError(w, &apperrors.ValidationError{Message: "invalid JSON request body"})
+		h.writeError(w, apperrors.NewValidationError("", "invalid JSON request body"))
 		return
 	}
 
@@ -55,15 +60,19 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shortURL, err := h.service.Shorten(r.Context(), request.URL)
-	if err != nil {
+	status := http.StatusCreated
+	switch {
+	case errors.Is(err, apperrors.ErrConflict):
+		status = http.StatusConflict
+	case err != nil:
 		h.writeError(w, err)
 		return
 	}
 
 	response := dto.ShortenResponse{Result: shortURL}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(status)
+
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		h.log.Error("encode response error", logger.Error(err))
 	}
@@ -81,7 +90,7 @@ func (h *Handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 	var request []dto.ShortenRequestBatch
 
 	if err := json.Unmarshal(body, &request); err != nil {
-		h.writeError(w, &apperrors.ValidationError{Message: "invalid JSON request body"})
+		h.writeError(w, apperrors.NewValidationError("", "invalid JSON request body"))
 		return
 	}
 
