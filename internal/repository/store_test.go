@@ -16,12 +16,19 @@ const nextID = "SELECT nextval(pg_get_serial_sequence('links', 'id'))"
 const insertURL = "INSERT INTO links (id, short_key, original_url) VALUES ($1, $2, $3) ON CONFLICT (original_url) DO NOTHING RETURNING short_key, original_url"
 
 func expectInsert(mock sqlmock.Sqlmock, id int64, key, original string) {
-	mock.ExpectQuery(findByOriginal).WithArgs(original).
-		WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
 	mock.ExpectQuery(nextID).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id))
 	mock.ExpectQuery(insertURL).WithArgs(id, key, original).
 		WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(key, original))
+}
+
+func expectConflict(mock sqlmock.Sqlmock, id int64, attemptedKey, existingKey, original string) {
+	mock.ExpectQuery(nextID).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id))
+	mock.ExpectQuery(insertURL).WithArgs(id, attemptedKey, original).
+		WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
+	mock.ExpectQuery(findByOriginal).WithArgs(original).
+		WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(existingKey, original))
 }
 
 func TestStorage(t *testing.T) {
@@ -68,8 +75,7 @@ func TestStorage(t *testing.T) {
 			name: "returns existing entry when URL is already stored",
 			setupMock: func(mock sqlmock.Sqlmock) {
 				expectInsert(mock, firstShortID, "10000", originalURL)
-				mock.ExpectQuery(findByOriginal).WithArgs(originalURL).
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10000", originalURL))
+				expectConflict(mock, firstShortID+1, "10001", "10000", originalURL)
 				mock.ExpectQuery(findByKey).WithArgs("10000").
 					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow("10000", originalURL))
 				mock.ExpectQuery(findByKey).WithArgs("10001").
@@ -85,11 +91,7 @@ func TestStorage(t *testing.T) {
 				assert.Equal(t, &want, stored)
 
 				stored, err = store.SetIfAbsent(t.Context(), originalURL)
-				if _, isDB := store.storage.(*dbStorage); isDB {
-					require.NoError(t, err)
-				} else {
-					require.ErrorIs(t, err, apperrors.ErrConflict)
-				}
+				require.ErrorIs(t, err, apperrors.ErrConflict)
 				assert.Equal(t, &want, stored)
 
 				gotURL, err := store.Get(t.Context(), firstKey)
@@ -214,14 +216,13 @@ func TestStorage_SetBatched(t *testing.T) {
 				mock.ExpectCommit()
 
 				mock.ExpectBegin()
-				mock.ExpectQuery(findByOriginal).WithArgs(firstURL).
-					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}).AddRow(firstKey, firstURL))
-				expectInsert(mock, firstShortID+1, secondKey, secondURL)
+				expectConflict(mock, firstShortID+1, secondKey, firstKey, firstURL)
+				expectInsert(mock, firstShortID+2, thirdKey, secondURL)
 				mock.ExpectCommit()
 
 				expectGet(mock, firstKey, firstURL)
-				expectGet(mock, secondKey, secondURL)
-				mock.ExpectQuery(findByKey).WithArgs(thirdKey).
+				expectGet(mock, thirdKey, secondURL)
+				mock.ExpectQuery(findByKey).WithArgs(secondKey).
 					WillReturnRows(sqlmock.NewRows([]string{"short_key", "original_url"}))
 			},
 			run: func(t *testing.T, store *Store) {
@@ -233,10 +234,14 @@ func TestStorage_SetBatched(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, firstEntries, stored)
 
+				storedKey, unusedKey := secondKey, thirdKey
+				if _, isDB := store.storage.(*dbStorage); isDB {
+					storedKey, unusedKey = thirdKey, secondKey
+				}
 				secondEntries := []*entity.URL{
-					{Key: secondKey, Original: secondURL},
+					{Key: storedKey, Original: secondURL},
 					{Key: firstKey, Original: firstURL},
-					{Key: secondKey, Original: secondURL},
+					{Key: storedKey, Original: secondURL},
 				}
 
 				stored, err = store.SetBatchIfAbsent(t.Context(), []string{
@@ -251,11 +256,11 @@ func TestStorage_SetBatched(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, firstEntries[0], gotURL)
 
-				gotURL, err = store.Get(t.Context(), secondKey)
+				gotURL, err = store.Get(t.Context(), storedKey)
 				require.NoError(t, err)
 				assert.Equal(t, secondEntries[0], gotURL)
 
-				_, err = store.Get(t.Context(), thirdKey)
+				_, err = store.Get(t.Context(), unusedKey)
 				assert.ErrorIs(t, err, apperrors.ErrNotFound)
 			},
 		},

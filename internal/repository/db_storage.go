@@ -74,7 +74,7 @@ func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string)
 	byURL := make(map[string]*entity.URL, len(orderedURLs))
 	for _, originalURL := range orderedURLs {
 		stored, err := getOrCreateURL(ctx, tx, originalURL)
-		if err != nil {
+		if err != nil && !errors.Is(err, apperrors.ErrConflict) {
 			return nil, err
 		}
 
@@ -102,8 +102,24 @@ func (s *dbStorage) Close() error {
 }
 
 func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*entity.URL, error) {
+	var nextID int64
+	err := conn.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&nextID)
+	if err != nil {
+		return nil, err
+	}
+
 	e := new(entity.URL)
-	err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
+	shortKey := base62.EncodeID(nextID)
+
+	err = conn.QueryRowContext(
+		ctx,
+		`INSERT INTO links (id, short_key, original_url)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (original_url) DO NOTHING
+				RETURNING short_key, original_url
+		`,
+		nextID, shortKey, originalURL,
+	).Scan(&e.Key, &e.Original)
 
 	if err == nil {
 		return e, nil
@@ -113,31 +129,9 @@ func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*
 		return nil, err
 	}
 
-	var id int64
-	err = conn.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&id)
-	if err != nil {
+	if err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original); err != nil {
 		return nil, err
 	}
 
-	shortKey := base62.EncodeID(id)
-
-	err = conn.QueryRowContext(
-		ctx,
-		`INSERT INTO links (id, short_key, original_url)
-				VALUES ($1, $2, $3)
-				ON CONFLICT (original_url) DO NOTHING
-				RETURNING short_key, original_url
-		`,
-		id, shortKey, originalURL,
-	).Scan(&e.Key, &e.Original)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		err = conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return e, nil
+	return e, apperrors.ErrConflict
 }
