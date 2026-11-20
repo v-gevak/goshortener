@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"slices"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -25,17 +26,20 @@ type queryRower interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
-func newDBStorage(dsn string) (*dbStorage, error) {
+func newDBStorage(ctx context.Context, dsn string) (*dbStorage, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot open database connection: %w", err)
+	}
+
+	err = migrations.ApplyAll(ctx, db)
+
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot initialize database: %w", err)
 	}
 
 	return &dbStorage{db: db}, nil
-}
-
-func (s *dbStorage) bootstrap(ctx context.Context) error {
-	return migrations.ApplyAll(ctx, s.db)
 }
 
 func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
@@ -49,7 +53,7 @@ func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot find URL by short key: %w", err)
 	}
 
 	return e, nil
@@ -66,7 +70,7 @@ func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot begin batch transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -87,25 +91,31 @@ func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot commit batch transaction: %w", err)
 	}
 
 	return result, nil
 }
 
 func (s *dbStorage) Ping(ctx context.Context) error {
-	return s.db.PingContext(ctx)
+	if err := s.db.PingContext(ctx); err != nil {
+		return fmt.Errorf("cannot ping database: %w", err)
+	}
+	return nil
 }
 
 func (s *dbStorage) Close() error {
-	return s.db.Close()
+	if err := s.db.Close(); err != nil {
+		return fmt.Errorf("cannot close database: %w", err)
+	}
+	return nil
 }
 
 func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*entity.URL, error) {
 	var nextID int64
 	err := conn.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&nextID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get next URL ID: %w", err)
 	}
 
 	e := new(entity.URL)
@@ -126,11 +136,11 @@ func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
+		return nil, fmt.Errorf("cannot insert URL: %w", err)
 	}
 
 	if err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot find existing URL after conflict: %w", err)
 	}
 
 	return e, apperrors.ErrConflict

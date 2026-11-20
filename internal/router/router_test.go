@@ -23,7 +23,7 @@ import (
 
 func TestRouter_ShortenAndExpand(t *testing.T) {
 	baseURL := "http://example.com/"
-	store, err := repository.New(repository.StoreSettings{})
+	store, err := repository.New(t.Context(), repository.StoreSettings{})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, store.Close())

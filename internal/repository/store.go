@@ -25,26 +25,23 @@ type StoreSettings struct {
 	DBDSN    string
 }
 
-func New(settings StoreSettings) (*Store, error) {
+func New(ctx context.Context, settings StoreSettings) (*Store, error) {
 	var repo storage
 	var err error
 
 	if settings.DBDSN != "" {
-		repo, err = newDBStorage(settings.DBDSN)
+		repo, err = newDBStorage(ctx, settings.DBDSN)
 	} else if settings.FilePath != "" {
 		repo, err = newFileStorage(settings.FilePath)
 	} else {
 		repo = newInMemoryStorage()
 	}
 
-	return &Store{storage: repo}, err
-}
-
-func (s *Store) Bootstrap(ctx context.Context) error {
-	if db, ok := s.storage.(*dbStorage); ok {
-		return db.bootstrap(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	return &Store{storage: repo}, nil
 }
 
 func (s *Store) Get(ctx context.Context, key string) (*entity.URL, error) {

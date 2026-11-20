@@ -149,7 +149,7 @@ func TestStorage(t *testing.T) {
 							settings.FilePath = filepath.Join(t.TempDir(), "storage.jsonl")
 						}
 						var err error
-						store, err = New(settings)
+						store, err = New(t.Context(), settings)
 						require.NoError(t, err)
 					}
 
@@ -287,7 +287,7 @@ func TestStorage_SetBatched(t *testing.T) {
 							settings.FilePath = filepath.Join(t.TempDir(), "storage.jsonl")
 						}
 						var err error
-						store, err = New(settings)
+						store, err = New(t.Context(), settings)
 						require.NoError(t, err)
 					}
 

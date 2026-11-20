@@ -43,7 +43,9 @@ func run() error {
 		}
 	}()
 
-	store, err := repository.New(storeSettings(cfg))
+	initCtx, cancelInit := context.WithTimeout(context.Background(), 30*time.Second)
+	store, err := repository.New(initCtx, storeSettings(cfg))
+	cancelInit()
 	if err != nil {
 		log.Error("cannot create store", logger.Error(err))
 		return err
@@ -54,14 +56,6 @@ func run() error {
 			log.Error("store close error", logger.Error(err))
 		}
 	}()
-
-	bootstrapCtx, cancelBootstrap := context.WithTimeout(context.Background(), 30*time.Second)
-	err = store.Bootstrap(bootstrapCtx)
-	cancelBootstrap()
-	if err != nil {
-		log.Error("cannot bootstrap store", logger.Error(err))
-		return err
-	}
 
 	svc, err := service.New(store, serviceSettings(cfg))
 	if err != nil {
