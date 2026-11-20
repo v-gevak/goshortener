@@ -43,7 +43,9 @@ func run() error {
 		}
 	}()
 
-	store, err := repository.New(storeSettings(cfg))
+	initCtx, cancelInit := context.WithTimeout(context.Background(), 30*time.Second)
+	store, err := repository.New(initCtx, storeSettings(cfg))
+	cancelInit()
 	if err != nil {
 		log.Error("cannot create store", logger.Error(err))
 		return err
@@ -120,7 +122,7 @@ func logSettings(cfg *config.Config) logger.Settings {
 
 func storeSettings(cfg *config.Config) repository.StoreSettings {
 	return repository.StoreSettings{
-		Provider: cfg.StoreSettings.Provider,
 		FilePath: cfg.StoreSettings.FilePath,
+		DBDSN:    cfg.StoreSettings.DBDSN,
 	}
 }

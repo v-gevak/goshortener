@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	logger "github.com/v-gevak/goshortener/internal/logger"
@@ -41,18 +42,18 @@ func (m *MockURLService) EXPECT() *MockURLServiceMockRecorder {
 }
 
 // Expand mocks base method.
-func (m *MockURLService) Expand(key string) (string, error) {
+func (m *MockURLService) Expand(ctx context.Context, key string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expand", key)
+	ret := m.ctrl.Call(m, "Expand", ctx, key)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Expand indicates an expected call of Expand.
-func (mr *MockURLServiceMockRecorder) Expand(key any) *MockURLServiceExpandCall {
+func (mr *MockURLServiceMockRecorder) Expand(ctx, key any) *MockURLServiceExpandCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expand", reflect.TypeOf((*MockURLService)(nil).Expand), key)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expand", reflect.TypeOf((*MockURLService)(nil).Expand), ctx, key)
 	return &MockURLServiceExpandCall{Call: call}
 }
 
@@ -68,30 +69,68 @@ func (c *MockURLServiceExpandCall) Return(arg0 string, arg1 error) *MockURLServi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLServiceExpandCall) Do(f func(string) (string, error)) *MockURLServiceExpandCall {
+func (c *MockURLServiceExpandCall) Do(f func(context.Context, string) (string, error)) *MockURLServiceExpandCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLServiceExpandCall) DoAndReturn(f func(string) (string, error)) *MockURLServiceExpandCall {
+func (c *MockURLServiceExpandCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockURLServiceExpandCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Ping mocks base method.
+func (m *MockURLService) Ping(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ping", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Ping indicates an expected call of Ping.
+func (mr *MockURLServiceMockRecorder) Ping(ctx any) *MockURLServicePingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockURLService)(nil).Ping), ctx)
+	return &MockURLServicePingCall{Call: call}
+}
+
+// MockURLServicePingCall wrap *gomock.Call
+type MockURLServicePingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockURLServicePingCall) Return(arg0 error) *MockURLServicePingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockURLServicePingCall) Do(f func(context.Context) error) *MockURLServicePingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockURLServicePingCall) DoAndReturn(f func(context.Context) error) *MockURLServicePingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Shorten mocks base method.
-func (m *MockURLService) Shorten(originalURL string) (string, error) {
+func (m *MockURLService) Shorten(ctx context.Context, originalURL string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Shorten", originalURL)
+	ret := m.ctrl.Call(m, "Shorten", ctx, originalURL)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Shorten indicates an expected call of Shorten.
-func (mr *MockURLServiceMockRecorder) Shorten(originalURL any) *MockURLServiceShortenCall {
+func (mr *MockURLServiceMockRecorder) Shorten(ctx, originalURL any) *MockURLServiceShortenCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shorten", reflect.TypeOf((*MockURLService)(nil).Shorten), originalURL)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shorten", reflect.TypeOf((*MockURLService)(nil).Shorten), ctx, originalURL)
 	return &MockURLServiceShortenCall{Call: call}
 }
 
@@ -107,13 +146,52 @@ func (c *MockURLServiceShortenCall) Return(arg0 string, arg1 error) *MockURLServ
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLServiceShortenCall) Do(f func(string) (string, error)) *MockURLServiceShortenCall {
+func (c *MockURLServiceShortenCall) Do(f func(context.Context, string) (string, error)) *MockURLServiceShortenCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLServiceShortenCall) DoAndReturn(f func(string) (string, error)) *MockURLServiceShortenCall {
+func (c *MockURLServiceShortenCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockURLServiceShortenCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ShortenBatch mocks base method.
+func (m *MockURLService) ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShortenBatch", ctx, originalURLs)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShortenBatch indicates an expected call of ShortenBatch.
+func (mr *MockURLServiceMockRecorder) ShortenBatch(ctx, originalURLs any) *MockURLServiceShortenBatchCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShortenBatch", reflect.TypeOf((*MockURLService)(nil).ShortenBatch), ctx, originalURLs)
+	return &MockURLServiceShortenBatchCall{Call: call}
+}
+
+// MockURLServiceShortenBatchCall wrap *gomock.Call
+type MockURLServiceShortenBatchCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockURLServiceShortenBatchCall) Return(arg0 []string, arg1 error) *MockURLServiceShortenBatchCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockURLServiceShortenBatchCall) Do(f func(context.Context, []string) ([]string, error)) *MockURLServiceShortenBatchCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockURLServiceShortenBatchCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockURLServiceShortenBatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

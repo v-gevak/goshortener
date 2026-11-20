@@ -1,50 +1,65 @@
 package repository
 
 import (
-	"errors"
+	"context"
 
 	"github.com/v-gevak/goshortener/internal/entity"
 )
 
-type storeProvider interface {
-	Get(key string) (*entity.URL, error)
-	SetIfAbsent(url *entity.URL) (*entity.URL, error)
+const firstShortID = 62 * 62 * 62 * 62
+
+type storage interface {
+	Get(ctx context.Context, key string) (*entity.URL, error)
+	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
+	SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error)
+	Ping(ctx context.Context) error
 	Close() error
 }
 
 type Store struct {
-	provider storeProvider
+	storage storage
 }
 
 type StoreSettings struct {
 	FilePath string
-	Provider string
+	DBDSN    string
 }
 
-func New(settings StoreSettings) (*Store, error) {
-	var provider storeProvider
+func New(ctx context.Context, settings StoreSettings) (*Store, error) {
+	var repo storage
 	var err error
 
-	switch settings.Provider {
-	case "in-memory":
-		provider = newInMemoryProvider()
-	case "file":
-		provider, err = newFileProvider(settings.FilePath)
-	default:
-		return nil, errors.New("unknown store provider")
+	if settings.DBDSN != "" {
+		repo, err = newDBStorage(ctx, settings.DBDSN)
+	} else if settings.FilePath != "" {
+		repo, err = newFileStorage(settings.FilePath)
+	} else {
+		repo = newInMemoryStorage()
 	}
 
-	return &Store{provider: provider}, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &Store{storage: repo}, nil
 }
 
-func (s *Store) Get(key string) (*entity.URL, error) {
-	return s.provider.Get(key)
+func (s *Store) Get(ctx context.Context, key string) (*entity.URL, error) {
+	return s.storage.Get(ctx, key)
 }
 
-func (s *Store) SetIfAbsent(url *entity.URL) (*entity.URL, error) {
-	return s.provider.SetIfAbsent(url)
+func (s *Store) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
+	return s.storage.SetIfAbsent(ctx, originalURL)
+}
+
+func (s *Store) SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error) {
+	return s.storage.SetBatchIfAbsent(ctx, originalURLs)
+}
+
+func (s *Store) Ping(ctx context.Context) error {
+	return s.storage.Ping(ctx)
 }
 
 func (s *Store) Close() error {
-	return s.provider.Close()
+	return s.storage.Close()
 }

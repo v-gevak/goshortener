@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,22 +36,18 @@ func TestService_Shorten(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			const baseURL = "http://example.com"
+			const storedKey = "aB1"
 
 			store := mocks.NewMockURLStore(gomock.NewController(t))
-			var stored entity.URL
 			if !tt.wantErr {
-				store.EXPECT().SetIfAbsent(gomock.Any()).
-					DoAndReturn(func(url *entity.URL) (*entity.URL, error) {
-						require.NotNil(t, url)
-						stored = *url
-						return url, nil
-					})
+				store.EXPECT().SetIfAbsent(t.Context(), tt.originalURL).
+					Return(&entity.URL{Key: storedKey, Original: tt.originalURL}, nil)
 			}
 
 			svc, err := New(store, Settings{BaseURL: baseURL})
 			require.NoError(t, err)
 
-			shortURL, err := svc.Shorten(tt.originalURL)
+			shortURL, err := svc.Shorten(t.Context(), tt.originalURL)
 
 			if tt.wantErr {
 				var validationErr *apperrors.ValidationError
@@ -64,17 +59,7 @@ func TestService_Shorten(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.True(t, strings.HasPrefix(shortURL, baseURL+"/"))
-
-			key := strings.TrimPrefix(shortURL, baseURL+"/")
-			assert.Len(t, key, keyLength)
-
-			for _, char := range key {
-				assert.True(t, strings.ContainsRune(alphabet, char))
-			}
-
-			assert.Equal(t, entity.URL{Key: key, Original: tt.originalURL}, stored)
-
+			assert.Equal(t, baseURL+"/"+storedKey, shortURL)
 		})
 	}
 }
@@ -136,12 +121,12 @@ func TestService_Expand(t *testing.T) {
 			if tt.wantErr == nil {
 				stored = &entity.URL{Key: tt.key, Original: tt.originalURL}
 			}
-			store.EXPECT().Get(tt.key).Return(stored, tt.wantErr)
+			store.EXPECT().Get(t.Context(), tt.key).Return(stored, tt.wantErr)
 
 			svc, err := New(store, Settings{BaseURL: "http://example.com"})
 			require.NoError(t, err)
 
-			url, err := svc.Expand(tt.key)
+			url, err := svc.Expand(t.Context(), tt.key)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -152,5 +137,67 @@ func TestService_Expand(t *testing.T) {
 			assert.Equal(t, tt.originalURL, url)
 		})
 	}
+}
 
+func TestService_ShortenBatch(t *testing.T) {
+	const (
+		firstURL  = "https://example.com"
+		secondURL = "https://example.org/page/"
+	)
+	tests := []struct {
+		name           string
+		originalURLs   []string
+		normalizedURLs []string
+		wantErr        bool
+	}{
+		{
+			name:           "normalizes equivalent URLs without changing the order",
+			originalURLs:   []string{"HTTPS://EXAMPLE.COM:443/", secondURL, firstURL},
+			normalizedURLs: []string{firstURL, secondURL, firstURL},
+		},
+		{
+			name:         "invalid second URL prevents storage",
+			originalURLs: []string{"https://example.com", "invalid-url"},
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const baseURL = "http://example.com"
+
+			store := mocks.NewMockURLStore(gomock.NewController(t))
+			if !tt.wantErr {
+				store.EXPECT().
+					SetBatchIfAbsent(t.Context(), tt.normalizedURLs).
+					Return([]*entity.URL{
+						{Key: "1", Original: firstURL},
+						{Key: "2", Original: secondURL},
+						{Key: "1", Original: firstURL},
+					}, nil)
+			}
+
+			svc, err := New(store, Settings{BaseURL: baseURL})
+			require.NoError(t, err)
+
+			shortURLs, err := svc.ShortenBatch(t.Context(), tt.originalURLs)
+
+			if tt.wantErr {
+				var validationErr *apperrors.ValidationError
+				require.ErrorAs(t, err, &validationErr)
+				assert.Equal(t, "url", validationErr.Field)
+				assert.NotEmpty(t, validationErr.Message)
+				require.Empty(t, shortURLs)
+				assert.Contains(t, err.Error(), "batch item [1]")
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []string{
+				baseURL + "/1",
+				baseURL + "/2",
+				baseURL + "/1",
+			}, shortURLs)
+		})
+	}
 }

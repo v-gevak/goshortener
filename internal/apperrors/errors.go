@@ -6,13 +6,17 @@ import (
 )
 
 var (
-	ErrConflict = errors.New("short key already exists")
+	ErrConflict = errors.New("originalURL already exists")
 	ErrNotFound = errors.New("url not found")
 )
 
 type ValidationError struct {
 	Field   string
 	Message string
+}
+
+func NewValidationError(field string, message string) *ValidationError {
+	return &ValidationError{field, message}
 }
 
 func (e *ValidationError) Error() string {
