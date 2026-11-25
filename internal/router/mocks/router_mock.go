@@ -40,6 +40,47 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
+// Error mocks base method.
+func (m *MockLogger) Error(msg string, fields ...logger.Field) {
+	m.ctrl.T.Helper()
+	varargs := []any{msg}
+	for _, a := range fields {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Error", varargs...)
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockLoggerMockRecorder) Error(msg any, fields ...any) *MockLoggerErrorCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{msg}, fields...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockLogger)(nil).Error), varargs...)
+	return &MockLoggerErrorCall{Call: call}
+}
+
+// MockLoggerErrorCall wrap *gomock.Call
+type MockLoggerErrorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLoggerErrorCall) Return() *MockLoggerErrorCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLoggerErrorCall) Do(f func(string, ...logger.Field)) *MockLoggerErrorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLoggerErrorCall) DoAndReturn(f func(string, ...logger.Field)) *MockLoggerErrorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Info mocks base method.
 func (m *MockLogger) Info(msg string, fields ...logger.Field) {
 	m.ctrl.T.Helper()

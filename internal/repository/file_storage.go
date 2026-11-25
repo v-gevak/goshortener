@@ -50,6 +50,7 @@ type Item struct {
 	ID          int64  `json:"id"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+	UserID      string `json:"user_id,omitempty"`
 }
 
 func (s *fileStorage) restoreLastID() error {
@@ -86,7 +87,50 @@ func (s *fileStorage) Get(_ context.Context, key string) (*entity.URL, error) {
 		return nil, err
 	}
 
-	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
+	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL, UserID: item.UserID}, nil
+}
+
+func (s *fileStorage) GetBatchByUser(ctx context.Context, userID string) ([]*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if _, err := s.file.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	s.fileReader.Reset(s.file)
+
+	var entities []*entity.URL
+
+	for {
+		line, err := s.fileReader.ReadBytes('\n')
+		isEOF := errors.Is(err, io.EOF)
+		if err != nil && !isEOF {
+			return nil, err
+		}
+
+		if isEOF && len(line) == 0 {
+			break
+		}
+
+		var item Item
+
+		if err := json.Unmarshal(line, &item); err != nil {
+			return nil, err
+		}
+
+		if item.UserID == userID {
+			entities = append(
+				entities,
+				&entity.URL{Key: item.ShortURL, Original: item.OriginalURL, UserID: item.UserID},
+			)
+		}
+
+		if isEOF {
+			break
+		}
+	}
+
+	return entities, nil
 }
 
 func (s *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
@@ -116,7 +160,7 @@ func (s *fileStorage) findItem(match func(item Item) bool) (*Item, error) {
 	}
 }
 
-func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
+func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL, userID string) (*entity.URL, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -125,7 +169,7 @@ func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 	})
 
 	if err == nil {
-		return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, apperrors.ErrConflict
+		return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL, UserID: item.UserID}, apperrors.ErrConflict
 	}
 
 	if !errors.Is(err, apperrors.ErrNotFound) {
@@ -138,6 +182,7 @@ func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 		ID:          id,
 		ShortURL:    base62.EncodeID(id),
 		OriginalURL: originalURL,
+		UserID:      userID,
 	}
 
 	data, err := json.Marshal(item)
@@ -149,10 +194,10 @@ func (s *fileStorage) SetIfAbsent(_ context.Context, originalURL string) (*entit
 	}
 	s.lastID = id
 
-	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}, nil
+	return &entity.URL{Key: item.ShortURL, Original: item.OriginalURL, UserID: item.UserID}, nil
 }
 
-func (s *fileStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string) ([]*entity.URL, error) {
+func (s *fileStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string, userID string) ([]*entity.URL, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -187,13 +232,13 @@ func (s *fileStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string)
 		item, exists := existing[originalURL]
 		if !exists {
 			nextID++
-			item = Item{ID: nextID, ShortURL: base62.EncodeID(nextID), OriginalURL: originalURL}
+			item = Item{ID: nextID, ShortURL: base62.EncodeID(nextID), OriginalURL: originalURL, UserID: userID}
 			if err := json.MarshalEncode(encoder, item); err != nil {
 				return nil, err
 			}
 			existing[originalURL] = item
 		}
-		result[i] = &entity.URL{Key: item.ShortURL, Original: item.OriginalURL}
+		result[i] = &entity.URL{Key: item.ShortURL, Original: item.OriginalURL, UserID: item.UserID}
 	}
 
 	if buffer.Len() == 0 {

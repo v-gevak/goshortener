@@ -4,7 +4,8 @@ go 1.27.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/go-chi/chi/v5 v5.5.0
+	github.com/go-chi/chi/v5 v5.5.1-0.20261018133412-04f7f55a7b5d
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/pressly/goose/v3 v3.30.1
 	github.com/stretchr/testify v1.12.1

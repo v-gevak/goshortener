@@ -12,6 +12,7 @@ import (
 )
 
 func TestService_Shorten(t *testing.T) {
+	const userID = "user-1"
 	tests := []struct {
 		name        string
 		originalURL string
@@ -40,14 +41,14 @@ func TestService_Shorten(t *testing.T) {
 
 			store := mocks.NewMockURLStore(gomock.NewController(t))
 			if !tt.wantErr {
-				store.EXPECT().SetIfAbsent(t.Context(), tt.originalURL).
+				store.EXPECT().SetIfAbsent(t.Context(), tt.originalURL, userID).
 					Return(&entity.URL{Key: storedKey, Original: tt.originalURL}, nil)
 			}
 
 			svc, err := New(store, Settings{BaseURL: baseURL})
 			require.NoError(t, err)
 
-			shortURL, err := svc.Shorten(t.Context(), tt.originalURL)
+			shortURL, err := svc.Shorten(t.Context(), tt.originalURL, userID)
 
 			if tt.wantErr {
 				var validationErr *apperrors.ValidationError
@@ -140,6 +141,7 @@ func TestService_Expand(t *testing.T) {
 }
 
 func TestService_ShortenBatch(t *testing.T) {
+	const userID = "user-1"
 	const (
 		firstURL  = "https://example.com"
 		secondURL = "https://example.org/page/"
@@ -169,7 +171,7 @@ func TestService_ShortenBatch(t *testing.T) {
 			store := mocks.NewMockURLStore(gomock.NewController(t))
 			if !tt.wantErr {
 				store.EXPECT().
-					SetBatchIfAbsent(t.Context(), tt.normalizedURLs).
+					SetBatchIfAbsent(t.Context(), tt.normalizedURLs, userID).
 					Return([]*entity.URL{
 						{Key: "1", Original: firstURL},
 						{Key: "2", Original: secondURL},
@@ -180,7 +182,7 @@ func TestService_ShortenBatch(t *testing.T) {
 			svc, err := New(store, Settings{BaseURL: baseURL})
 			require.NoError(t, err)
 
-			shortURLs, err := svc.ShortenBatch(t.Context(), tt.originalURLs)
+			shortURLs, err := svc.ShortenBatch(t.Context(), tt.originalURLs, userID)
 
 			if tt.wantErr {
 				var validationErr *apperrors.ValidationError

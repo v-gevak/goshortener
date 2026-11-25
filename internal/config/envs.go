@@ -13,6 +13,7 @@ func parseEnvs(cfg *Config) error {
 	setEnvString("FILE_LOGGING_PATH", &cfg.LogSettings.FilePath)
 	setEnvString("FILE_STORAGE_PATH", &cfg.StoreSettings.FilePath)
 	setEnvString("DATABASE_DSN", &cfg.StoreSettings.DBDSN)
+	setEnvString("AUTH_SIGNING_KEY", &cfg.AuthSettings.SigningKey)
 
 	if err := setEnvBool("ENABLE_FILE_LOGGING", &cfg.LogSettings.EnableFile); err != nil {
 		return err

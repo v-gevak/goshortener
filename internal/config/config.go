@@ -1,5 +1,11 @@
 package config
 
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+)
+
 type ServiceSettings struct {
 	BaseURL string
 }
@@ -20,11 +26,16 @@ type StoreSettings struct {
 	DBDSN    string
 }
 
+type AuthSettings struct {
+	SigningKey string
+}
+
 type Config struct {
 	ServiceSettings ServiceSettings
 	ServerSettings  ServerSettings
 	LogSettings     LogSettings
 	StoreSettings   StoreSettings
+	AuthSettings    AuthSettings
 }
 
 func New() (*Config, error) {
@@ -38,7 +49,15 @@ func New() (*Config, error) {
 	return cfg, nil
 }
 
+func getRandomSigningKey() string {
+	var signingKey [sha256.Size]byte
+	rand.Read(signingKey[:])
+	return base64.StdEncoding.EncodeToString(signingKey[:])
+}
+
 func setDefaults(cfg *Config) {
+	cfg.AuthSettings.SigningKey = getRandomSigningKey()
+
 	cfg.LogSettings.Level = "info"
 	cfg.LogSettings.EnableConsole = true
 	cfg.LogSettings.EnableFile = false

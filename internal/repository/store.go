@@ -10,8 +10,9 @@ const firstShortID = 62 * 62 * 62 * 62
 
 type storage interface {
 	Get(ctx context.Context, key string) (*entity.URL, error)
-	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
-	SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error)
+	GetBatchByUser(ctx context.Context, userID string) ([]*entity.URL, error)
+	SetIfAbsent(ctx context.Context, originalURL, userID string) (*entity.URL, error)
+	SetBatchIfAbsent(ctx context.Context, originalURLs []string, userID string) ([]*entity.URL, error)
 	Ping(ctx context.Context) error
 	Close() error
 }
@@ -48,12 +49,16 @@ func (s *Store) Get(ctx context.Context, key string) (*entity.URL, error) {
 	return s.storage.Get(ctx, key)
 }
 
-func (s *Store) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
-	return s.storage.SetIfAbsent(ctx, originalURL)
+func (s *Store) GetBatchByUser(ctx context.Context, userID string) ([]*entity.URL, error) {
+	return s.storage.GetBatchByUser(ctx, userID)
 }
 
-func (s *Store) SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error) {
-	return s.storage.SetBatchIfAbsent(ctx, originalURLs)
+func (s *Store) SetIfAbsent(ctx context.Context, originalURL, userID string) (*entity.URL, error) {
+	return s.storage.SetIfAbsent(ctx, originalURL, userID)
+}
+
+func (s *Store) SetBatchIfAbsent(ctx context.Context, originalURLs []string, userID string) ([]*entity.URL, error) {
+	return s.storage.SetBatchIfAbsent(ctx, originalURLs, userID)
 }
 
 func (s *Store) Ping(ctx context.Context) error {

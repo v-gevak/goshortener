@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	logger "github.com/v-gevak/goshortener/internal/logger"
+	service "github.com/v-gevak/goshortener/internal/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -80,6 +81,45 @@ func (c *MockURLServiceExpandCall) DoAndReturn(f func(context.Context, string) (
 	return c
 }
 
+// ExpandBatchByUser mocks base method.
+func (m *MockURLService) ExpandBatchByUser(ctx context.Context, userID string) ([]service.UserURL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExpandBatchByUser", ctx, userID)
+	ret0, _ := ret[0].([]service.UserURL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExpandBatchByUser indicates an expected call of ExpandBatchByUser.
+func (mr *MockURLServiceMockRecorder) ExpandBatchByUser(ctx, userID any) *MockURLServiceExpandBatchByUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpandBatchByUser", reflect.TypeOf((*MockURLService)(nil).ExpandBatchByUser), ctx, userID)
+	return &MockURLServiceExpandBatchByUserCall{Call: call}
+}
+
+// MockURLServiceExpandBatchByUserCall wrap *gomock.Call
+type MockURLServiceExpandBatchByUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockURLServiceExpandBatchByUserCall) Return(arg0 []service.UserURL, arg1 error) *MockURLServiceExpandBatchByUserCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockURLServiceExpandBatchByUserCall) Do(f func(context.Context, string) ([]service.UserURL, error)) *MockURLServiceExpandBatchByUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockURLServiceExpandBatchByUserCall) DoAndReturn(f func(context.Context, string) ([]service.UserURL, error)) *MockURLServiceExpandBatchByUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Ping mocks base method.
 func (m *MockURLService) Ping(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -119,18 +159,18 @@ func (c *MockURLServicePingCall) DoAndReturn(f func(context.Context) error) *Moc
 }
 
 // Shorten mocks base method.
-func (m *MockURLService) Shorten(ctx context.Context, originalURL string) (string, error) {
+func (m *MockURLService) Shorten(ctx context.Context, originalURL, userID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Shorten", ctx, originalURL)
+	ret := m.ctrl.Call(m, "Shorten", ctx, originalURL, userID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Shorten indicates an expected call of Shorten.
-func (mr *MockURLServiceMockRecorder) Shorten(ctx, originalURL any) *MockURLServiceShortenCall {
+func (mr *MockURLServiceMockRecorder) Shorten(ctx, originalURL, userID any) *MockURLServiceShortenCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shorten", reflect.TypeOf((*MockURLService)(nil).Shorten), ctx, originalURL)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shorten", reflect.TypeOf((*MockURLService)(nil).Shorten), ctx, originalURL, userID)
 	return &MockURLServiceShortenCall{Call: call}
 }
 
@@ -146,30 +186,30 @@ func (c *MockURLServiceShortenCall) Return(arg0 string, arg1 error) *MockURLServ
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLServiceShortenCall) Do(f func(context.Context, string) (string, error)) *MockURLServiceShortenCall {
+func (c *MockURLServiceShortenCall) Do(f func(context.Context, string, string) (string, error)) *MockURLServiceShortenCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLServiceShortenCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockURLServiceShortenCall {
+func (c *MockURLServiceShortenCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockURLServiceShortenCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ShortenBatch mocks base method.
-func (m *MockURLService) ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error) {
+func (m *MockURLService) ShortenBatch(ctx context.Context, originalURLs []string, userID string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShortenBatch", ctx, originalURLs)
+	ret := m.ctrl.Call(m, "ShortenBatch", ctx, originalURLs, userID)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ShortenBatch indicates an expected call of ShortenBatch.
-func (mr *MockURLServiceMockRecorder) ShortenBatch(ctx, originalURLs any) *MockURLServiceShortenBatchCall {
+func (mr *MockURLServiceMockRecorder) ShortenBatch(ctx, originalURLs, userID any) *MockURLServiceShortenBatchCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShortenBatch", reflect.TypeOf((*MockURLService)(nil).ShortenBatch), ctx, originalURLs)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShortenBatch", reflect.TypeOf((*MockURLService)(nil).ShortenBatch), ctx, originalURLs, userID)
 	return &MockURLServiceShortenBatchCall{Call: call}
 }
 
@@ -185,13 +225,13 @@ func (c *MockURLServiceShortenBatchCall) Return(arg0 []string, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLServiceShortenBatchCall) Do(f func(context.Context, []string) ([]string, error)) *MockURLServiceShortenBatchCall {
+func (c *MockURLServiceShortenBatchCall) Do(f func(context.Context, []string, string) ([]string, error)) *MockURLServiceShortenBatchCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLServiceShortenBatchCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockURLServiceShortenBatchCall {
+func (c *MockURLServiceShortenBatchCall) DoAndReturn(f func(context.Context, []string, string) ([]string, error)) *MockURLServiceShortenBatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

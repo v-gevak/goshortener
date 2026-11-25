@@ -80,6 +80,45 @@ func (c *MockURLStoreGetCall) DoAndReturn(f func(context.Context, string) (*enti
 	return c
 }
 
+// GetBatchByUser mocks base method.
+func (m *MockURLStore) GetBatchByUser(ctx context.Context, userID string) ([]*entity.URL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBatchByUser", ctx, userID)
+	ret0, _ := ret[0].([]*entity.URL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBatchByUser indicates an expected call of GetBatchByUser.
+func (mr *MockURLStoreMockRecorder) GetBatchByUser(ctx, userID any) *MockURLStoreGetBatchByUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBatchByUser", reflect.TypeOf((*MockURLStore)(nil).GetBatchByUser), ctx, userID)
+	return &MockURLStoreGetBatchByUserCall{Call: call}
+}
+
+// MockURLStoreGetBatchByUserCall wrap *gomock.Call
+type MockURLStoreGetBatchByUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockURLStoreGetBatchByUserCall) Return(arg0 []*entity.URL, arg1 error) *MockURLStoreGetBatchByUserCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockURLStoreGetBatchByUserCall) Do(f func(context.Context, string) ([]*entity.URL, error)) *MockURLStoreGetBatchByUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockURLStoreGetBatchByUserCall) DoAndReturn(f func(context.Context, string) ([]*entity.URL, error)) *MockURLStoreGetBatchByUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Ping mocks base method.
 func (m *MockURLStore) Ping(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -119,18 +158,18 @@ func (c *MockURLStorePingCall) DoAndReturn(f func(context.Context) error) *MockU
 }
 
 // SetBatchIfAbsent mocks base method.
-func (m *MockURLStore) SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error) {
+func (m *MockURLStore) SetBatchIfAbsent(ctx context.Context, originalURLs []string, userID string) ([]*entity.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetBatchIfAbsent", ctx, originalURLs)
+	ret := m.ctrl.Call(m, "SetBatchIfAbsent", ctx, originalURLs, userID)
 	ret0, _ := ret[0].([]*entity.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SetBatchIfAbsent indicates an expected call of SetBatchIfAbsent.
-func (mr *MockURLStoreMockRecorder) SetBatchIfAbsent(ctx, originalURLs any) *MockURLStoreSetBatchIfAbsentCall {
+func (mr *MockURLStoreMockRecorder) SetBatchIfAbsent(ctx, originalURLs, userID any) *MockURLStoreSetBatchIfAbsentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBatchIfAbsent", reflect.TypeOf((*MockURLStore)(nil).SetBatchIfAbsent), ctx, originalURLs)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBatchIfAbsent", reflect.TypeOf((*MockURLStore)(nil).SetBatchIfAbsent), ctx, originalURLs, userID)
 	return &MockURLStoreSetBatchIfAbsentCall{Call: call}
 }
 
@@ -146,30 +185,30 @@ func (c *MockURLStoreSetBatchIfAbsentCall) Return(arg0 []*entity.URL, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLStoreSetBatchIfAbsentCall) Do(f func(context.Context, []string) ([]*entity.URL, error)) *MockURLStoreSetBatchIfAbsentCall {
+func (c *MockURLStoreSetBatchIfAbsentCall) Do(f func(context.Context, []string, string) ([]*entity.URL, error)) *MockURLStoreSetBatchIfAbsentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLStoreSetBatchIfAbsentCall) DoAndReturn(f func(context.Context, []string) ([]*entity.URL, error)) *MockURLStoreSetBatchIfAbsentCall {
+func (c *MockURLStoreSetBatchIfAbsentCall) DoAndReturn(f func(context.Context, []string, string) ([]*entity.URL, error)) *MockURLStoreSetBatchIfAbsentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetIfAbsent mocks base method.
-func (m *MockURLStore) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
+func (m *MockURLStore) SetIfAbsent(ctx context.Context, originalURL, userID string) (*entity.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetIfAbsent", ctx, originalURL)
+	ret := m.ctrl.Call(m, "SetIfAbsent", ctx, originalURL, userID)
 	ret0, _ := ret[0].(*entity.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SetIfAbsent indicates an expected call of SetIfAbsent.
-func (mr *MockURLStoreMockRecorder) SetIfAbsent(ctx, originalURL any) *MockURLStoreSetIfAbsentCall {
+func (mr *MockURLStoreMockRecorder) SetIfAbsent(ctx, originalURL, userID any) *MockURLStoreSetIfAbsentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIfAbsent", reflect.TypeOf((*MockURLStore)(nil).SetIfAbsent), ctx, originalURL)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIfAbsent", reflect.TypeOf((*MockURLStore)(nil).SetIfAbsent), ctx, originalURL, userID)
 	return &MockURLStoreSetIfAbsentCall{Call: call}
 }
 
@@ -185,13 +224,13 @@ func (c *MockURLStoreSetIfAbsentCall) Return(arg0 *entity.URL, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockURLStoreSetIfAbsentCall) Do(f func(context.Context, string) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
+func (c *MockURLStoreSetIfAbsentCall) Do(f func(context.Context, string, string) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockURLStoreSetIfAbsentCall) DoAndReturn(f func(context.Context, string) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
+func (c *MockURLStoreSetIfAbsentCall) DoAndReturn(f func(context.Context, string, string) (*entity.URL, error)) *MockURLStoreSetIfAbsentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

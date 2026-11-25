@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/auth"
 	"github.com/v-gevak/goshortener/internal/handler/mocks"
 	"github.com/v-gevak/goshortener/internal/logger"
 	"go.uber.org/mock/gomock"
@@ -62,15 +63,17 @@ func TestHandler_shorten(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			const userID = "user-1"
+			ctx := auth.WithUserID(t.Context(), userID)
 			ctrl := gomock.NewController(t)
 			svc := mocks.NewMockURLService(ctrl)
 			log := mocks.NewMockLogger(ctrl)
 			if tt.originalURL != "" {
-				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, tt.serviceErr)
+				svc.EXPECT().Shorten(ctx, tt.originalURL, userID).Return(tt.shortURL, tt.serviceErr)
 			}
 			h := New(svc, log)
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", tt.body)
+			request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()
 
 			h.Shorten(w, request)
@@ -147,18 +150,20 @@ func TestHandler_shortenJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			const userID = "user-1"
+			ctx := auth.WithUserID(t.Context(), userID)
 			ctrl := gomock.NewController(t)
 			svc := mocks.NewMockURLService(ctrl)
 			log := mocks.NewMockLogger(ctrl)
 			if tt.originalURL != "" {
-				svc.EXPECT().Shorten(t.Context(), tt.originalURL).Return(tt.shortURL, tt.serviceErr)
+				svc.EXPECT().Shorten(ctx, tt.originalURL, userID).Return(tt.shortURL, tt.serviceErr)
 			}
 			if tt.expectedStatusCode == http.StatusInternalServerError {
 				log.EXPECT().Error("request failed", logger.Error(tt.serviceErr))
 			}
 			h := New(svc, log)
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/shorten", tt.body)
+			request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/shorten", tt.body)
 			w := httptest.NewRecorder()
 
 			h.ShortenJSON(w, request)
@@ -206,6 +211,8 @@ func TestHandler_shortenBatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			const userID = "user-1"
+			ctx := auth.WithUserID(t.Context(), userID)
 			ctrl := gomock.NewController(t)
 			svc := mocks.NewMockURLService(ctrl)
 			log := mocks.NewMockLogger(ctrl)
@@ -213,11 +220,11 @@ func TestHandler_shortenBatch(t *testing.T) {
 
 			if tt.originalURLs != nil {
 				svc.EXPECT().
-					ShortenBatch(t.Context(), tt.originalURLs).
+					ShortenBatch(ctx, tt.originalURLs, userID).
 					Return([]string{"https://example.com/1"}, nil)
 			}
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", tt.body)
+			request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", tt.body)
 			w := httptest.NewRecorder()
 
 			h.ShortenBatch(w, request)

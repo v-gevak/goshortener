@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/v-gevak/goshortener/internal/auth"
 	"github.com/v-gevak/goshortener/internal/config"
 	"github.com/v-gevak/goshortener/internal/handler"
 	"github.com/v-gevak/goshortener/internal/logger"
@@ -43,6 +44,16 @@ func run() error {
 		}
 	}()
 
+	signer, err := auth.NewSigner(cfg.AuthSettings.SigningKey)
+	if err != nil {
+		log.Error(
+			"cannot create signer",
+			logger.Error(err),
+			logger.String("AUTH_SIGNING_KEY", cfg.AuthSettings.SigningKey),
+		)
+		return err
+	}
+
 	initCtx, cancelInit := context.WithTimeout(context.Background(), 30*time.Second)
 	store, err := repository.New(initCtx, storeSettings(cfg))
 	cancelInit()
@@ -64,7 +75,7 @@ func run() error {
 	}
 
 	h := handler.New(svc, log)
-	r := router.New(h, log)
+	r := router.New(h, log, signer)
 
 	server := &http.Server{
 		Handler: r,
