@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -18,18 +19,22 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(body) == 0 {
-		h.writeError(w, &apperrors.ValidationError{Message: "empty body"})
+		h.writeError(w, apperrors.NewValidationError("", "empty body"))
 		return
 	}
 
-	shortURL, err := h.service.Shorten(string(body))
-	if err != nil {
+	shortURL, err := h.service.Shorten(r.Context(), string(body))
+	status := http.StatusCreated
+	switch {
+	case errors.Is(err, apperrors.ErrConflict):
+		status = http.StatusConflict
+	case err != nil:
 		h.writeError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(status)
 	if _, err := w.Write([]byte(shortURL)); err != nil {
 		h.log.Error("write response error", logger.Error(err))
 	}
@@ -45,25 +50,78 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 	var request dto.ShortenRequest
 
 	if err := json.Unmarshal(body, &request); err != nil {
-		h.writeError(w, &apperrors.ValidationError{Message: "invalid JSON request body"})
+		h.writeError(w, apperrors.NewValidationError("", "invalid JSON request body"))
 		return
 	}
 
-	if request.URL == "" {
-		h.writeError(w, &apperrors.ValidationError{Field: "url", Message: "must not be empty"})
+	if err := request.Validate(); err != nil {
+		h.writeError(w, err)
 		return
 	}
 
-	shortURL, err := h.service.Shorten(request.URL)
-	if err != nil {
+	shortURL, err := h.service.Shorten(r.Context(), request.URL)
+	status := http.StatusCreated
+	switch {
+	case errors.Is(err, apperrors.ErrConflict):
+		status = http.StatusConflict
+	case err != nil:
 		h.writeError(w, err)
 		return
 	}
 
 	response := dto.ShortenResponse{Result: shortURL}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.log.Error("encode response error", logger.Error(err))
+	}
+}
+
+func (h *Handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1048576))
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	var request []dto.ShortenRequestBatch
+
+	if err := json.Unmarshal(body, &request); err != nil {
+		h.writeError(w, apperrors.NewValidationError("", "invalid JSON request body"))
+		return
+	}
+
+	if err := dto.ValidateShortenRequestBatch(request); err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	originalURLs := make([]string, len(request))
+	for i, item := range request {
+		originalURLs[i] = item.OriginalURL
+	}
+
+	shortURLs, err := h.service.ShortenBatch(r.Context(), originalURLs)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+
+	var response = make([]dto.ShortenResponseBatch, len(request))
+
+	for i, shortURL := range shortURLs {
+		response[i] = dto.ShortenResponseBatch{
+			CorrelationID: request[i].CorrelationID,
+			ShortURL:      shortURL,
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		h.log.Error("encode response error", logger.Error(err))
 	}
@@ -72,5 +130,5 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
 
-	return io.ReadAll(http.MaxBytesReader(w, r.Body, 64*1024))
+	return io.ReadAll(http.MaxBytesReader(w, r.Body, 16*1024))
 }

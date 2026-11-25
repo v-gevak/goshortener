@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"path"
 	"strconv"
@@ -13,16 +13,14 @@ import (
 	"github.com/v-gevak/goshortener/internal/urlutil"
 )
 
-const (
-	keyLength                = 8
-	alphabet                 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	maxKeyGenerationAttempts = 100
-)
+const maxURLLength = 2048
 
 //go:generate go run go.uber.org/mock/mockgen -source=service.go -destination=mocks/url_mock.go -package=mocks -typed
 type URLStore interface {
-	SetIfAbsent(url *entity.URL) (*entity.URL, error)
-	Get(key string) (*entity.URL, error)
+	SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error)
+	SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error)
+	Get(ctx context.Context, key string) (*entity.URL, error)
+	Ping(ctx context.Context) error
 }
 
 type Settings struct {
@@ -42,32 +40,53 @@ func New(store URLStore, settings Settings) (*Service, error) {
 	return &Service{store: store, settings: settings}, nil
 }
 
-func (s *Service) Shorten(originalURL string) (string, error) {
-	if _, err := urlutil.ValidateHTTPURL(originalURL); err != nil {
-		return "", &apperrors.ValidationError{Field: "url", Message: err.Error()}
+func (s *Service) Shorten(ctx context.Context, originalURL string) (string, error) {
+	normalizedURL, err := normalizeOriginalURL(originalURL)
+	if err != nil {
+		return "", err
 	}
 
-	for range maxKeyGenerationAttempts {
-		storedURL, err := s.store.SetIfAbsent(&entity.URL{
-			Key:      s.generateKey(),
-			Original: originalURL,
-		})
-		if errors.Is(err, apperrors.ErrConflict) {
-			continue
-		}
-
-		if err != nil {
-			return "", err
-		}
-
-		return url.JoinPath(s.settings.BaseURL, storedURL.Key)
+	storedURL, storeErr := s.store.SetIfAbsent(ctx, normalizedURL)
+	if storeErr != nil && !errors.Is(storeErr, apperrors.ErrConflict) {
+		return "", storeErr
 	}
 
-	return "", errors.New("failed to generate unique key")
+	shortURL, err := url.JoinPath(s.settings.BaseURL, storedURL.Key)
+	if err != nil {
+		return "", err
+	}
+
+	return shortURL, storeErr
 }
 
-func (s *Service) Expand(key string) (string, error) {
-	storedEntity, err := s.store.Get(key)
+func (s *Service) ShortenBatch(ctx context.Context, originalURLs []string) ([]string, error) {
+	normalizedURLs := make([]string, len(originalURLs))
+	for i, originalURL := range originalURLs {
+		normalizedURL, err := normalizeOriginalURL(originalURL)
+		if err != nil {
+			return nil, fmt.Errorf("batch item [%d]: %w", i, err)
+		}
+		normalizedURLs[i] = normalizedURL
+	}
+
+	storedURLs, err := s.store.SetBatchIfAbsent(ctx, normalizedURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	shortURLs := make([]string, len(storedURLs))
+	for i, storedURL := range storedURLs {
+		shortURLs[i], err = url.JoinPath(s.settings.BaseURL, storedURL.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return shortURLs, nil
+}
+
+func (s *Service) Expand(ctx context.Context, key string) (string, error) {
+	storedEntity, err := s.store.Get(ctx, key)
 
 	if err != nil {
 		return "", err
@@ -76,14 +95,21 @@ func (s *Service) Expand(key string) (string, error) {
 	return storedEntity.Original, nil
 }
 
-func (s *Service) generateKey() string {
-	key := make([]byte, keyLength)
+func (s *Service) Ping(ctx context.Context) error {
+	return s.store.Ping(ctx)
+}
 
-	for i := range key {
-		key[i] = alphabet[rand.Intn(len(alphabet))]
+func normalizeOriginalURL(originalURL string) (string, error) {
+	normalizedURL, err := urlutil.NormalizeHTTPURL(originalURL)
+	if err != nil {
+		return "", apperrors.NewValidationError("url", err.Error())
 	}
 
-	return string(key)
+	if len(normalizedURL) > maxURLLength {
+		return "", apperrors.NewValidationError("url", fmt.Sprintf("must not exceed %d bytes after normalization", maxURLLength))
+	}
+
+	return normalizedURL, nil
 }
 
 func validateBaseURL(rawURL string) error {

@@ -51,7 +51,7 @@ func (r *gzipRequestBody) Read(b []byte) (int, error) {
 	n, err := r.Reader.Read(b)
 
 	if err != nil && !errors.Is(err, io.EOF) {
-		return n, &apperrors.ValidationError{Message: "invalid gzip body"}
+		return n, apperrors.NewValidationError("", "invalid gzip body")
 	}
 
 	return n, err
@@ -74,7 +74,7 @@ func withGzipRequest(next http.Handler) http.Handler {
 
 		zr, err := gzip.NewReader(r.Body)
 		if err != nil {
-			validationErr := &apperrors.ValidationError{Message: "invalid gzip body"}
+			validationErr := apperrors.NewValidationError("", "invalid gzip body")
 			http.Error(w, validationErr.Error(), http.StatusBadRequest)
 			return
 		}

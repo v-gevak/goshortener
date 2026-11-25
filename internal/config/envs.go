@@ -12,12 +12,11 @@ func parseEnvs(cfg *Config) error {
 	setEnvString("LOG_LEVEL", &cfg.LogSettings.Level)
 	setEnvString("FILE_LOGGING_PATH", &cfg.LogSettings.FilePath)
 	setEnvString("FILE_STORAGE_PATH", &cfg.StoreSettings.FilePath)
-	setEnvString("STORAGE_PROVIDER", &cfg.StoreSettings.Provider)
+	setEnvString("DATABASE_DSN", &cfg.StoreSettings.DBDSN)
 
 	if err := setEnvBool("ENABLE_FILE_LOGGING", &cfg.LogSettings.EnableFile); err != nil {
 		return err
 	}
-
 	if err := setEnvBool("ENABLE_CONSOLE_LOGGING", &cfg.LogSettings.EnableConsole); err != nil {
 		return err
 	}
@@ -30,6 +29,7 @@ func setEnvString(key string, target *string) {
 		*target = value
 	}
 }
+
 func setEnvBool(key string, target *bool) error {
 	value := os.Getenv(key)
 	if value == "" {
