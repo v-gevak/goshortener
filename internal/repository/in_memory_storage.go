@@ -37,14 +37,29 @@ func (s *inMemoryStorage) Get(_ context.Context, key string) (*entity.URL, error
 	return &v, nil
 }
 
-func (s *inMemoryStorage) SetIfAbsent(_ context.Context, originalURL string) (*entity.URL, error) {
+func (s *inMemoryStorage) GetBatchByUser(ctx context.Context, userID string) ([]*entity.URL, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	return s.getOrCreateURL(originalURL)
+	var entities []*entity.URL
+
+	for _, url := range s.urls {
+		if url.UserID == userID {
+			entities = append(entities, &url)
+		}
+	}
+
+	return entities, nil
 }
 
-func (s *inMemoryStorage) getOrCreateURL(originalURL string) (*entity.URL, error) {
+func (s *inMemoryStorage) SetIfAbsent(_ context.Context, originalURL, userID string) (*entity.URL, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.getOrCreateURL(originalURL, userID)
+}
+
+func (s *inMemoryStorage) getOrCreateURL(originalURL, userID string) (*entity.URL, error) {
 	if key, ok := s.keyByOriginal[originalURL]; ok {
 		stored := s.urls[key]
 		return &stored, apperrors.ErrConflict
@@ -55,6 +70,7 @@ func (s *inMemoryStorage) getOrCreateURL(originalURL string) (*entity.URL, error
 	e := entity.URL{
 		Original: originalURL,
 		Key:      key,
+		UserID:   userID,
 	}
 
 	s.urls[key] = e
@@ -64,14 +80,14 @@ func (s *inMemoryStorage) getOrCreateURL(originalURL string) (*entity.URL, error
 	return &e, nil
 }
 
-func (s *inMemoryStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string) ([]*entity.URL, error) {
+func (s *inMemoryStorage) SetBatchIfAbsent(_ context.Context, originalURLs []string, userID string) ([]*entity.URL, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	result := make([]*entity.URL, len(originalURLs))
 
 	for i, originalURL := range originalURLs {
-		result[i], _ = s.getOrCreateURL(originalURL)
+		result[i], _ = s.getOrCreateURL(originalURL, userID)
 	}
 
 	return result, nil

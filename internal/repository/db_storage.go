@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	findByOriginal = `SELECT short_key, original_url FROM links WHERE original_url = $1`
+	findByOriginal = `SELECT short_key, original_url, COALESCE(user_id, '') AS user_id FROM links WHERE original_url = $1`
 )
 
 type dbStorage struct {
@@ -43,11 +43,11 @@ func newDBStorage(ctx context.Context, dsn string) (*dbStorage, error) {
 }
 
 func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT short_key, original_url FROM links WHERE short_key = $1`, key)
+	row := s.db.QueryRowContext(ctx, `SELECT short_key, original_url, COALESCE(user_id, '') AS user_id FROM links WHERE short_key = $1`, key)
 
 	e := new(entity.URL)
 
-	err := row.Scan(&e.Key, &e.Original)
+	err := row.Scan(&e.Key, &e.Original, &e.UserID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, apperrors.ErrNotFound
 	}
@@ -59,11 +59,38 @@ func (s *dbStorage) Get(ctx context.Context, key string) (*entity.URL, error) {
 	return e, nil
 }
 
-func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL string) (*entity.URL, error) {
-	return getOrCreateURL(ctx, s.db, originalURL)
+func (s *dbStorage) GetBatchByUser(ctx context.Context, userID string) ([]*entity.URL, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT short_key, original_url, COALESCE(user_id, '') AS user_id FROM links WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find URLs by user_id: %w", err)
+	}
+	defer rows.Close()
+
+	var entities []*entity.URL
+
+	for rows.Next() {
+		e := new(entity.URL)
+		err = rows.Scan(&e.Key, &e.Original, &e.UserID)
+
+		if err != nil {
+			return nil, fmt.Errorf("cannot find URLs by user_id: %w", err)
+		}
+		entities = append(entities, e)
+	}
+
+	err = rows.Err()
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("cannot find URLs by user_id: %w", err)
+	}
+
+	return entities, nil
 }
 
-func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string) ([]*entity.URL, error) {
+func (s *dbStorage) SetIfAbsent(ctx context.Context, originalURL, userID string) (*entity.URL, error) {
+	return getOrCreateURL(ctx, s.db, originalURL, userID)
+}
+
+func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string, userID string) ([]*entity.URL, error) {
 	orderedURLs := slices.Clone(originalURLs)
 	slices.Sort(orderedURLs)
 	orderedURLs = slices.Compact(orderedURLs)
@@ -77,7 +104,7 @@ func (s *dbStorage) SetBatchIfAbsent(ctx context.Context, originalURLs []string)
 
 	byURL := make(map[string]*entity.URL, len(orderedURLs))
 	for _, originalURL := range orderedURLs {
-		stored, err := getOrCreateURL(ctx, tx, originalURL)
+		stored, err := getOrCreateURL(ctx, tx, originalURL, userID)
 		if err != nil && !errors.Is(err, apperrors.ErrConflict) {
 			return nil, err
 		}
@@ -111,24 +138,24 @@ func (s *dbStorage) Close() error {
 	return nil
 }
 
-func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*entity.URL, error) {
+func getOrCreateURL(ctx context.Context, conn queryRower, originalURL, userID string) (*entity.URL, error) {
 	var nextID int64
 	err := conn.QueryRowContext(ctx, `SELECT nextval(pg_get_serial_sequence('links', 'id'))`).Scan(&nextID)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get next URL ID: %w", err)
 	}
 
-	e := new(entity.URL)
+	e := &entity.URL{UserID: userID}
 	shortKey := base62.EncodeID(nextID)
 
 	err = conn.QueryRowContext(
 		ctx,
-		`INSERT INTO links (id, short_key, original_url)
-				VALUES ($1, $2, $3)
+		`INSERT INTO links (id, short_key, original_url, user_id)
+				VALUES ($1, $2, $3, NULLIF($4, ''))
 				ON CONFLICT (original_url) DO NOTHING
 				RETURNING short_key, original_url
 		`,
-		nextID, shortKey, originalURL,
+		nextID, shortKey, originalURL, userID,
 	).Scan(&e.Key, &e.Original)
 
 	if err == nil {
@@ -139,7 +166,7 @@ func getOrCreateURL(ctx context.Context, conn queryRower, originalURL string) (*
 		return nil, fmt.Errorf("cannot insert URL: %w", err)
 	}
 
-	if err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original); err != nil {
+	if err := conn.QueryRowContext(ctx, findByOriginal, originalURL).Scan(&e.Key, &e.Original, &e.UserID); err != nil {
 		return nil, fmt.Errorf("cannot find existing URL after conflict: %w", err)
 	}
 

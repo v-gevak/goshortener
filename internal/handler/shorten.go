@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/v-gevak/goshortener/internal/apperrors"
+	"github.com/v-gevak/goshortener/internal/auth"
 	"github.com/v-gevak/goshortener/internal/dto"
 	"github.com/v-gevak/goshortener/internal/logger"
 )
@@ -23,7 +24,9 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.service.Shorten(r.Context(), string(body))
+	userID, _ := auth.UserID(r.Context())
+
+	shortURL, err := h.service.Shorten(r.Context(), string(body), userID)
 	status := http.StatusCreated
 	switch {
 	case errors.Is(err, apperrors.ErrConflict):
@@ -59,7 +62,9 @@ func (h *Handler) ShortenJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.service.Shorten(r.Context(), request.URL)
+	userID, _ := auth.UserID(r.Context())
+
+	shortURL, err := h.service.Shorten(r.Context(), request.URL, userID)
 	status := http.StatusCreated
 	switch {
 	case errors.Is(err, apperrors.ErrConflict):
@@ -104,7 +109,9 @@ func (h *Handler) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 		originalURLs[i] = item.OriginalURL
 	}
 
-	shortURLs, err := h.service.ShortenBatch(r.Context(), originalURLs)
+	userID, _ := auth.UserID(r.Context())
+
+	shortURLs, err := h.service.ShortenBatch(r.Context(), originalURLs, userID)
 	if err != nil {
 		h.writeError(w, err)
 		return
